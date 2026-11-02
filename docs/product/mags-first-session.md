@@ -13,7 +13,7 @@ One sentence Ash can say afterwards: "Mags took a real idea to a first working r
 
 ## The session (30 minutes, Ash watching, not helping)
 1. Mags types her idea in the "Start a project" box in the BOB pane, in her own words, one or two sentences. That is the last thing she types that is not an answer to a question.
-2. Claude designs it with her in plain questions, four at a time at most. She answers in words.
+2. Claude designs it with her in plain questions, one at a time, each with Claude's best guess for her to correct, then reads the idea back to her, including what the first version will not do. She answers in words. (Changed from "four at a time at most" on 2 November 2026 to match Ash's "one question at a time" in intent.md; the pass and fail lines below are unchanged.)
 3. BOB draws the picture of what she is building. She opens it and reads it back to Ash in one sentence.
 4. She presses Adopt, then Approve, in the pane. Claude builds the first round.
 5. She presses "I've seen this" on what she can see. The round ends with three lines and the picture link.

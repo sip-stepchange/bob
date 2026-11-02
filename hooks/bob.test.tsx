@@ -366,7 +366,7 @@ test('Gate A refuses a write when no approval covers the active increment, namin
   expect(write).toContain('bank and pulls')
   expect(write).toContain('INC-T-2')
   expect(write).toContain('approval')
-  expect(write).toContain('Ash needs to')
+  expect(write).toContain('the person at the screen needs to')
 
   const edit = said(await $.tool.call({ tool: 'Edit', file_path: '/repo/src/a.ts', old_string: 'a', new_string: 'b' }))
   expect(edit).toContain('Gate A')
@@ -448,14 +448,14 @@ const said1 = (text: string) => JSON.stringify({ type: 'assistant', message: { r
 test('R-bob-01: a round under an active increment cannot end on a closing report longer than three lines; the block names the shape, once', async ($, on) => {
   const w = await approvedWorld(on)
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  w.transcript = [said1('Built it.\n\nDetail here.\n\nStage: built.\nLive: docs/map.html.\nNext: Ash needs to look.\nExtra: a fourth line.')].join('\n')
+  w.transcript = [said1('Built it.\n\nDetail here.\n\nStage: built.\nLive: docs/map.html.\nNext: You need to look.\nExtra: a fourth line.')].join('\n')
   const blocked = await $.classic.Stop(stopInput())
   expect(blocked.block ?? '').toContain('three lines')
   expect(blocked.block ?? '').toContain('stage')
   // One block per round.
   expect((await $.classic.Stop(stopInput(true))).block).toBe(undefined)
   // A closing report of three lines passes.
-  w.transcript = [said1('Detail above.\n\nStage: built.\nLive: docs/map.html.\nNext: Ash needs to look.')].join('\n')
+  w.transcript = [said1('Detail above.\n\nStage: built.\nLive: docs/map.html.\nNext: You need to look.')].join('\n')
   expect((await $.classic.Stop(stopInput())).block).toBe(undefined)
   // An unreadable transcript never blocks.
   w.transcript = 'not json'
@@ -1465,12 +1465,12 @@ test('R-bob-17: a project still being designed gets a map of its six stages, a l
   expect(data.next.text).toContain('Data and knowledge')
 })
 
-test('R-bob-17: when all six design stages are done the design map names Adopt, by Ash, as the next step', async ($, on) => {
+test('R-bob-17: when all six design stages are done the design map names Adopt, by the person, as the next step', async ($, on) => {
   const w2 = await workspaceWorld(on, { ...designedTo(5), [`idea/${PROPOSAL_PATH}`]: '{}' })
   await $.session.start({ cwd: ROOT, surface: 'desktop', isInteractive: true })
   const done = mapData(w2).data
   expect(done.branches.flatMap(b => b.items).every(d => d.state === 'built')).toBe(true)
-  expect(done.next.doer).toBe('ASH NEEDS TO')
+  expect(done.next.doer).toBe('YOU NEED TO')
   expect(done.next.text).toContain('Adopt')
 })
 
@@ -1828,11 +1828,11 @@ test('R-bob-demo-15: BOB never asks a person to type: the adopt status line and 
 test('R-bob-demo-16: a round cannot end on a closing report that does not show the map; the live line carries docs/map.html or a link', async ($, on) => {
   const w = await approvedWorld(on)
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  w.transcript = said1('Detail.\n\nStage: built.\nLive: nothing yet.\nNext: Ash needs to look.')
+  w.transcript = said1('Detail.\n\nStage: built.\nLive: nothing yet.\nNext: You need to look.')
   const blocked = await $.classic.Stop(stopInput())
   expect(blocked.block ?? '').toContain('show the map')
   expect((await $.classic.Stop(stopInput(true))).block).toBe(undefined)
-  w.transcript = said1('Detail.\n\nStage: built.\nLive: the picture at https://claude.ai/artifact/abc.\nNext: Ash needs to look.')
+  w.transcript = said1('Detail.\n\nStage: built.\nLive: the picture at https://claude.ai/artifact/abc.\nNext: You need to look.')
   expect((await $.classic.Stop(stopInput())).block).toBe(undefined)
 })
 
@@ -1842,7 +1842,7 @@ test('R-bob-demo-17: a round cannot end on a next step whose doer is Claude', as
   w.transcript = said1('Detail.\n\nStage: built.\nLive: docs/map.html.\nNext: Claude merges it.')
   const blocked = await $.classic.Stop(stopInput())
   expect(blocked.block ?? '').toContain('doer is Claude')
-  w.transcript = said1('Detail.\n\nStage: built.\nLive: docs/map.html.\nNext step: Ash needs to press Approve.')
+  w.transcript = said1('Detail.\n\nStage: built.\nLive: docs/map.html.\nNext step: You need to press Approve.')
   expect((await $.classic.Stop(stopInput())).block).toBe(undefined)
 })
 
@@ -2137,9 +2137,9 @@ test('QA 7: the mind map reader keeps a renamed heading’s parts, reads a part 
 test('QA 8: the live line must show the picture: a link with no word of the map is not enough', async ($, on) => {
   const w = await approvedWorld(on)
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  w.transcript = said1('Detail.\n\nStage: built.\nLive: https://example.com/anything.\nNext: Ash needs to look.')
+  w.transcript = said1('Detail.\n\nStage: built.\nLive: https://example.com/anything.\nNext: You need to look.')
   expect((await $.classic.Stop(stopInput())).block ?? '').toContain('show the map')
-  w.transcript = said1('Detail.\n\nStage: built.\nLive: the picture at https://claude.ai/artifact/abc.\nNext: Ash needs to look.')
+  w.transcript = said1('Detail.\n\nStage: built.\nLive: the picture at https://claude.ai/artifact/abc.\nNext: You need to look.')
   expect((await $.classic.Stop(stopInput())).block).toBe(undefined)
 })
 
@@ -2188,14 +2188,14 @@ test('R-bob-demo-12: a new branch the person adds off the centre in MindNode bec
 
 // End of phase two, 29 October 2026: the reviewers' second verdicts.
 
-test('R-bob-demo-17: the next step names Ash, not Claude, for a built promise a screen rests on, since only a person’s “I’ve seen this” press can move it', async ($, on) => {
+test('R-bob-demo-17: the next step names the person, not Claude, for a built promise a screen rests on, since only a person’s “I’ve seen this” press can move it', async ($, on) => {
   const screenRests = { ...PRODUCT, nodes: [...PRODUCT.nodes, { id: 'page', kind: 'screen', name: 'The page', says: '', promises: ['R-T-03'] }] }
   const brief = { requirements: BRIEF.requirements.map(r => (r.id === 'R-T-04' ? { ...r, state: 'verified', evidence_ids: ['E-T-04'] } : r)) }
   const ledger = { ...LEDGER, evidence: [...LEDGER.evidence, evidence('E-T-04', 'R-T-04', '2026-10-21T09:25:00+11:00')] }
   const w = await approvedWorld(on, { brief, ledger, approvals: [{ id: 'AP-T-2', brief_hash: await sha256(JSON.stringify(brief)), scope_increment_ids: ['INC-T-2'], approver: 'Mags (fixture)', approved_at: T, ...base('human') }], files: { 'bob/product.json': JSON.stringify(screenRests) } })
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   const { data } = mapData(w)
-  expect(data.next.doer).toBe('ASH NEEDS TO')
+  expect(data.next.doer).toBe('YOU NEED TO')
   expect(data.next.text).toContain('I’ve seen this')
   expect(data.next.text).toContain('bank')
 })
@@ -2344,13 +2344,65 @@ test('the next step never asks for a button the pane does not have: a proven pro
   expect(data.next.text).not.toContain('accept')
 })
 
-test('a round with every promise proven names the Approve press on the next round as the step, in Ash’s name, not "accept or return"', async ($, on) => {
+test('a round with every promise proven names the Approve press on the next round as the step, in the person’s name, not "accept or return"', async ($, on) => {
   const brief = { requirements: BRIEF.requirements.map(r => (['R-T-03', 'R-T-04'].includes(r.id) ? { ...r, state: 'verified', evidence_ids: ['E-T-03'] } : r)) }
   const ledger = { ...LEDGER, evidence: [...LEDGER.evidence, evidence('E-T-04', 'R-T-04', '2026-10-21T09:25:00+11:00')] }
   const w = await approvedWorld(on, { brief, ledger, approvals: [{ id: 'AP-T-2', brief_hash: await sha256(JSON.stringify(brief)), scope_increment_ids: ['INC-T-2'], approver: 'Mags (fixture)', approved_at: T, ...base('human') }] })
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   const { data } = mapData(w)
-  expect(data.next.doer).toBe('ASH NEEDS TO')
+  expect(data.next.doer).toBe('YOU NEED TO')
   expect(data.next.text).toContain('Approve')
   expect(data.next.text).not.toContain('accept or return')
+})
+
+// Handover, 30 October 2026: BOB passed from Ash to Alicia, Mags and Lukas. Every
+// person step was written "Ash needs to", so the pane told Mags that Ash had to
+// act. The doer of a person step is now the person at the screen ("You need to");
+// Gate A's refusal, which Claude reads, names the person so Claude relays it.
+test('handover: nothing a person reads names Ash; the person at the screen is the doer, and Gate A tells Claude to relay the step', async ($, on) => {
+  const w = await approvedWorld(on, { approvals: [] })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const deny = said(await $.tool.call({ tool: 'Write', file_path: '/repo/src/new.ts', content: 'x' }))
+  expect(deny).toContain('the person at the screen needs to: press Approve')
+  expect(deny).not.toMatch(/\bAsh\b/)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /\bAsh\b/ })).toBeFalsy()
+  expect((await ui.find({ type: 'Text', text: /You need to/ }))?.text).toContain('press Approve')
+  await ui.unmount()
+  const { html, data } = mapData(w)
+  expect(data.next.doer).toBe('YOU NEED TO')
+  expect(html).not.toMatch(/Ash needs to|ASH NEEDS TO/)
+  expect(w.pages!.length).toBeGreaterThan(0)
+  expect(w.pages![w.pages!.length - 1].text).not.toMatch(/Ash needs to|ASH NEEDS TO/)
+})
+
+test('handover: pressing Approve records and announces the approver by name, never as Ash', async ($, on) => {
+  const w = await adoptWorld(on)
+  w.userName = 'Mags (fixture)'
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await adopt($)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: approveKey('INC-00') })
+  const started = (JSON.parse(w.files!['bob/ledger.json']).events as { type: string; detail: string }[]).filter(e => e.type === 'started')
+  expect(started.length).toBe(1)
+  expect(started[0].detail).toContain('Mags (fixture)’s click on Approve')
+  expect(w.prompts!.length).toBe(1)
+  expect(w.prompts![0]).toContain('Mags (fixture) approved INC-00')
+  expect(w.prompts![0]).not.toMatch(/\bAsh\b/)
+  await ui.unmount()
+})
+
+// 2 November 2026: the round method has one home, the build-with-bob skill, and
+// the prompt a press on Approve submits names it, so the round Claude starts runs
+// in thin proven slices with a fresh-eyes review before it closes.
+test('pressing Approve starts the round under the build-with-bob skill', async ($, on) => {
+  const w = await adoptWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await adopt($)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: approveKey('INC-00') })
+  expect(w.prompts!.length).toBe(1)
+  expect(w.prompts![0]).toContain('build-with-bob skill')
+  expect(w.prompts![0]).toContain('Do not stop to ask')
+  await ui.unmount()
 })

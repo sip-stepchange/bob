@@ -37,16 +37,16 @@ fi
 # The data contract lives in the plugin.
 if [ -f docs/product/product-plan.md ]; then say "present docs/product/product-plan.md"
 elif [ -f bob/brief.md ]; then say "present bob/brief.md (the design room's plan)"
-elif [ -f bob/brief.json ]; then bad "missing docs/product/product-plan.md (governed repo; a design-room project has bob/brief.md instead). Ash needs to restore it from git"
+elif [ -f bob/brief.json ]; then bad "missing docs/product/product-plan.md (governed repo; a design-room project has bob/brief.md instead). You need to restore it from git"
 else say "plan absent (not designed yet; the design-with-bob skill writes bob/brief.md)"; fi
-if [ -f "$PLUGIN_ROOT/bob/schema.json" ]; then say "present bob/schema.json (plugin)"; else bad "missing bob/schema.json in the plugin folder $PLUGIN_ROOT. Ash needs to reinstall BOB"; fi
+if [ -f "$PLUGIN_ROOT/bob/schema.json" ]; then say "present bob/schema.json (plugin)"; else bad "missing bob/schema.json in the plugin folder $PLUGIN_ROOT. You need to reinstall BOB"; fi
 
 # 2b. The status file: required once the repo is governed (bob/brief.json
 # exists). /bob adopt creates it when absent, so before adopt it is optional.
 if [ -f docs/project-status.md ]; then
   say "present docs/project-status.md"
 elif [ -f bob/brief.json ]; then
-  bad "missing docs/project-status.md (governed repo). Ash needs to restore it from git"
+  bad "missing docs/project-status.md (governed repo). You need to restore it from git"
 else
   say "status file absent (not governed yet; /bob adopt creates docs/project-status.md)"
 fi
@@ -54,7 +54,7 @@ fi
 # 3. Ledger: required once governed. Before that, fixtures stand in where they
 # exist; a new project or the workspace folder has neither, and that is fine.
 if [ -f bob/ledger.json ]; then say "ledger bob/ledger.json present"
-elif [ -f bob/brief.json ]; then bad "missing bob/ledger.json (governed repo). Ash needs to restore it from git"
+elif [ -f bob/brief.json ]; then bad "missing bob/ledger.json (governed repo). You need to restore it from git"
 elif [ -f fixtures/ledger.json ]; then say "ledger not yet created; fixtures/ledger.json stands in (synthetic)"
 else say "no ledger yet (not governed; /bob adopt writes bob/ledger.json)"; fi
 
@@ -81,21 +81,21 @@ GIT_BIN="${BOB_GIT:-git}"; GH_BIN="${BOB_GH:-gh}"
 if command -v "$GIT_BIN" >/dev/null 2>&1; then
   say "stack: git present"
 else
-  bad "stack gap: git not found. Ash needs to install git before BOB can branch or commit"
+  bad "stack gap: git not found. You need to install git before BOB can branch or commit"
 fi
 origin="$(git remote get-url origin 2>/dev/null || true)"
 case "$origin" in
   *github.com*)
     if ! command -v "$GH_BIN" >/dev/null 2>&1; then
-      bad "stack gap: gh (GitHub CLI) not found. Ash needs to install it before BOB can open or merge a pull request"
+      bad "stack gap: gh (GitHub CLI) not found. You need to install it before BOB can open or merge a pull request"
     elif ! "$GH_BIN" auth status >/dev/null 2>&1; then
-      bad "stack gap: gh is not signed in. Ash needs to sign in to GitHub with gh"
+      bad "stack gap: gh is not signed in. You need to sign in to GitHub with gh"
     else
       say "stack: gh signed in"
       if "$GH_BIN" repo view "$origin" --json name >/dev/null 2>&1; then
         say "stack: origin repo reachable"
       else
-        bad "stack gap: no access to the origin repo. Ash needs to be given access to it on GitHub"
+        bad "stack gap: no access to the origin repo. You need to be given access to it on GitHub"
       fi
     fi
     ;;
@@ -114,7 +114,7 @@ if command -v claude >/dev/null 2>&1; then
 else
   say "stack: no claude on PATH (the desktop app carries its own engine)"
 fi
-say "stack: seat not checked by this script (plan tier unverified; Ash confirms)"
+say "stack: seat not checked by this script (plan tier unverified; the person confirms)"
 
 if [ "$fail" -ne 0 ]; then
   echo "preflight · one or more STOP lines above. Fix them before any work." >&2

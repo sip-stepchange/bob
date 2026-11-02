@@ -24,6 +24,9 @@ Brief version: see the hash in each review page. Every record here is synthetic.
 - Roster sheet row per request. [source claim, S-02]
 - CSV export every Friday for head office. [source claim, S-02 line 4; LATE CHANGE, added after the first brief]
 
+## Not building
+- A mobile app: requests come in by the existing form for the first version. [owner instruction, agreed in the play-back]
+
 ## Requirements
 - R-roster-00 MUST: the project is BOB-governed (bob/ files exist, main unchanged). not_assessed.
 - R-roster-01 MUST: a submitted request appears as one row in the roster sheet within a minute. not_assessed. S-02.

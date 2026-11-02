@@ -1,0 +1,5 @@
+# Red run, 2 November 2026: the build-with-bob prompt test against branch handover-fixes at a4c555d (plugin 0.19.5), engine 2.1.316 (Claude Code)
+(fail) pressing Approve starts the round under the build-with-bob skill [156.66ms]
+ 134 pass
+ 1 fail
+Ran 135 tests across 1 file. [14.89s]

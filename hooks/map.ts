@@ -109,12 +109,12 @@ export function buildMapData(m: Model, b: Board, generatedAt: string, file: MapF
   }
 
   const all = branches.flatMap(br => br.items)
-  const m1 = b.next.match(/^(Ash needs to|Claude):?\s*([\s\S]*)$/i)
+  const m1 = b.next.match(/^(You need to|Ash needs to|Claude):?\s*([\s\S]*)$/i)
   return {
     project: String(m.brief?.project?.name ?? m.place?.project ?? 'this project'),
     generatedAt,
     round: roundWords(b, m),
-    next: { doer: m1 ? (m1[1].toLowerCase().startsWith('ash') ? 'ASH NEEDS TO' : 'CLAUDE') : 'NEXT', text: m1 ? m1[2] : b.next },
+    next: { doer: m1 ? (/^(you|ash)/i.test(m1[1]) ? 'YOU NEED TO' : 'CLAUDE') : 'NEXT', text: m1 ? m1[2] : b.next },
     proven: all.filter(d => d.state === 'proven').length,
     total: all.length,
     question: all.length ? null : QUESTION,
@@ -162,7 +162,7 @@ export function designMapData(m: Model, project: string, stages: string[], done:
     project,
     generatedAt,
     round: started ? 'Designing' : 'Not started',
-    next: current === -1 ? { doer: 'ASH NEEDS TO', text: 'press Adopt this project in the BOB pane, so the build can be approved' } : { doer: 'CLAUDE', text: `finish the design step “${stages[current]}”` },
+    next: current === -1 ? { doer: 'YOU NEED TO', text: 'press Adopt this project in the BOB pane, so the build can be approved' } : { doer: 'CLAUDE', text: `finish the design step “${stages[current]}”` },
     proven: 0,
     total: items.length,
     question: started ? null : QUESTION,

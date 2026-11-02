@@ -1,0 +1,6 @@
+# Red run, 30 October 2026: the two handover tests against main at 35d14eb (plugin 0.19.4), engine 2.1.314 (Claude Code)
+(fail) handover: nothing a person reads names Ash; the person at the screen is the doer, and Gate A tells Claude to relay the step [71.62ms]
+(fail) handover: pressing Approve records and announces the approver by name, never as Ash [140.69ms]
+ 132 pass
+ 2 fail
+Ran 134 tests across 1 file. [14.58s]
