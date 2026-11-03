@@ -154,3 +154,8 @@ Off the critical path (run when the path is waiting, never instead of it):
 - The Approve prompt names build-with-bob (test 'pressing Approve starts the round under the build-with-bob skill', seen red on 0.19.5).
 - design-with-bob asks one question at a time with a best guess (Ash's intent.md said one at a time; the skill, ONBOARDING and mags-first-session said up to four), plays the idea back with a Not building line and waits for an explicit yes. `bob/brief.md` gains a required `Not building` section; check_design_room.py refuses a brief without it, and the design-room fixture was restamped (brief 0a24f06928b1).
 - The workspace template names build-with-bob, but BOB never overwrites a workspace CLAUDE.md, so a workspace made before 0.20.0 keeps the old text. The Approve prompt carries the rule regardless.
+
+## Owner decisions, 3 November 2026
+- Lukas is spelt Lukas everywhere (earlier files mixed in "Lucas").
+- BOB will never be listed in Anthropic's plugin directory, so it needs no LICENSE file or icon. `claude plugin validate .` still prints LICENSE_MISSING and ICON_MISSING under its directory profile; both are advisory and the check passes.
+- Mags and Lukas reach the repository through the shared `sip-stepchange` GitHub account.
