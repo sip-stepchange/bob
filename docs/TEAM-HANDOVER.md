@@ -1,4 +1,4 @@
-# BOB is yours: Alicia, Mags and Lucas
+# BOB is yours: Alicia, Mags and Lukas
 
 Handed over by Ash on 29 October 2026, 10:40 pm. Ash is out. You three own BOB from here: Alicia holds its foundations and adoption, Mags makes the call on whether it is kept, cut back, or stopped, and Lukas supports Mags with Alicia. Nobody needs Ash's approval for any of it. This page is the whole handover; everything else it points to is in this repository.
 
@@ -45,7 +45,7 @@ Branch, pull request, five required checks (secret scan, plugin validate and tes
 - Name the doer on every action line, one step at a time for a person, never a list of to-dos.
 
 ## Your first decision
-Each of you runs one small real idea through it (half an hour; `docs/product/mags-first-session.md` says what pass and fail look like). Then Mags decides, with Alicia's and Lucas's notes in front of her, and writes the decision at the top of `docs/project-status.md` in this repository:
+Each of you runs one small real idea through it (half an hour; `docs/product/mags-first-session.md` says what pass and fail look like). Then Mags decides, with Alicia's and Lukas's notes in front of her, and writes the decision at the top of `docs/project-status.md` in this repository:
 - Keep: run the next real project through it the same way.
 - Cut: strip it to the gates and the picture; drop the status page, the proof counts in the pane and the reviewer ceremony.
 - Stop: archive the repository. Nothing else depends on it.
