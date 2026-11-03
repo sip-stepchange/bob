@@ -24,6 +24,10 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # gitleaks-action needs a free licence key on an organisation account (its README);
+          # BOB moved from Ash's personal account to sip-stepchange on 29 October 2026.
+          # The repository secret GITLEAKS_LICENSE is added on GitHub, never in a file.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   personal-data:
     name: no personal or client data in Claude files

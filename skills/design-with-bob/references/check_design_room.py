@@ -24,7 +24,9 @@ def find_schema():
     return None
 
 TEXT_TYPES = {"markdown", "text", "txt", "csv", "json", "md"}
-SECTIONS = ["Who", "Job", "Change", "Today", "End game", "Constraints", "Outputs", "Requirements", "Conflicts", "Unknowns"]
+# "Not building" since 0.20.0 (2 November 2026): the play-back names what the first
+# version leaves out, and the brief keeps it so a round cannot quietly widen.
+SECTIONS = ["Who", "Job", "Change", "Today", "End game", "Constraints", "Outputs", "Not building", "Requirements", "Conflicts", "Unknowns"]
 
 
 def main(folder: str, synthetic: bool = False) -> int:

@@ -1,0 +1,7 @@
+# Green run, 2 November 2026: branch handover-fixes (plugin 0.20.0), engine 2.1.316 (Claude Code)
+(pass) handover: nothing a person reads names Ash; the person at the screen is the doer, and Gate A tells Claude to relay the step [82.27ms]
+(pass) handover: pressing Approve records and announces the approver by name, never as Ash [154.43ms]
+(pass) pressing Approve starts the round under the build-with-bob skill [100.50ms]
+ 135 pass
+ 0 fail
+Ran 135 tests across 1 file. [14.44s]

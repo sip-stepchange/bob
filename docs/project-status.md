@@ -8,7 +8,7 @@
 - Where to look: docs/map.html (the picture); docs/status.html (the status page).
 <!-- /BOB now -->
 
-**Handed over, 29 October 2026, 10:40 pm.** BOB belongs to Alicia, Mags and Lucas; Mags decides its future; Ash is out. Read `docs/TEAM-HANDOVER.md`. The owners' verdicts and Mags's keep, cut or stop decision go here, at the top.
+**Handed over, 29 October 2026, 10:40 pm.** BOB belongs to Alicia, Mags and Lukas; Mags decides its future; Ash is out. Read `docs/TEAM-HANDOVER.md`. The owners' verdicts and Mags's keep, cut or stop decision go here, at the top.
 
 Last updated: 22 October 2026, Build 3 Part B item 1 (adopt VGA) done on VGA branch bob-adopt, pull request open NEEDS ASH; Part A merged (plugin 0.3.0, tag bob--v0.3.0). Earlier: Build 2 Part A COMPLETE: plugin 0.2.0 merged to main (pull request 7) and tagged bob--v0.2.0; Part B (adopt AquaAgent) not started. Build 1 COMPLETE and merged to main. Pane seen by Ash on the Code tab, and again in a fresh folder after a one-command install from the repo (step 8 verified by Ash).
 
@@ -145,3 +145,5 @@ None that stop design work. The pane spike is the first thing that can fail; its
 - Phase rounds, 29 October 2026: verified. BOB 0.12.0: adopt refuses a plan with more than three increments (INC-00, phase one, phase two) or a requirement outside every increment; design-with-bob and adopt-under-bob say rounds are phases. Two tests proven red without the rule, 88 pass 0 fail on engine 2.1.308. Evidence: hooks/bob.test.tsx, hooks/register.tsx.
 - Approve starts the work, 29 October 2026: verified. BOB 0.13.0: a click on Approve in the pane now sends one prompt that starts the approved increment, so an approval never lands on an idle window (AP-02 stall). Test proven red without the fix; 89 pass, 0 fail on engine 2.1.308. Live proof still needed. Evidence: hooks/bob.test.tsx, hooks/register.tsx.
 - Map next step names its doer, 29 October 2026: implemented. BOB 0.13.1: the buddy bar's Next step line now reads 'Claude: ...' or 'Ash needs to: ...' (templates/map.html). Seen in a browser on the republished page. Evidence: templates/map.html.
+- Handover fixes, 30 October 2026: implemented on branch `handover-fixes` (plugin 0.19.5). Person steps say "You need to" instead of "Ash needs to"; approvals name the approver; live docs point at sip-stepchange/bob. Two new tests seen red on 0.19.4 and green on 0.19.5 (134 of 134). Evidence: docs/evidence/handover/. Not yet seen in the desktop app's pane: that is the first owner's session.
+- Best of Osmani's agent-skills, 2 November 2026: implemented on branch `handover-fixes` (plugin 0.20.0). New build-with-bob skill; Approve starts the round under it; design asks one question at a time with a best guess and plays back what is not being built; brief.md requires Not building. New test seen red on 0.19.5, green on 0.20.0. Evidence: docs/evidence/handover/. Not yet seen in a live session.

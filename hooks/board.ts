@@ -15,7 +15,15 @@ export type Place = {
 }
 
 export const WORKSPACE_FILE = 'bob-workspace.json'
-export const WORKSPACE_REPAIR = `Ash needs to rename ${WORKSPACE_FILE} in Finder (for example to bob-workspace.broken.json, never delete it), then ask Claude to open the project again`
+
+// The person at the screen is the doer of every person step, so a next action says
+// "You need to" (handover, 30 October 2026: BOB is no longer one person's; the
+// old "Ash needs to" is still read so older pages and records parse).
+export const PERSON_DOER = /^(You need to|Ash needs to)\b/i
+// Claude reads a denial as a tool result, where "you" would mean Claude. Name the
+// person instead, so Claude relays the step and never tries to take it.
+export const forClaude = (next: string) => next.replace(PERSON_DOER, 'the person at the screen needs to')
+export const WORKSPACE_REPAIR = `You need to rename ${WORKSPACE_FILE} in Finder (for example to bob-workspace.broken.json, never delete it), then ask Claude to open the project again`
 
 export type Model = {
   // The repo root, absolute, from $.session.root(). Every repo file is read and
@@ -104,9 +112,9 @@ export const when = (iso: unknown): string => {
 export function approvalVerdict(m: Model): Verdict {
   if (m.place.workspaceError) return { ok: false, reason: m.place.workspaceError, next: WORKSPACE_REPAIR }
   if (!m.governed) return { ok: true, note: 'not governed: no bob/brief.json, gates idle' }
-  if (!m.schema) return { ok: false, reason: 'BOB’s own rule file is missing or does not read', next: 'Ash needs to reinstall BOB', detail: 'bob/schema.json is missing or does not parse in the plugin folder' }
-  if (m.parseErrors.length) return { ok: false, reason: 'a BOB record file does not read as it should', next: 'Ash needs to: ask Claude to restore the file from git, or to remove stray typed text if it was never committed. Text typed while a file pane is open lands in the file: close file panes before typing', detail: m.parseErrors.join('; ') }
-  if (!m.brief || !m.ledger) return { ok: false, reason: 'the brief or the ledger is missing', next: 'Ash needs to: ask Claude to design and adopt this project (the BOB pane offers Adopt once the proposal exists), or restore the files from git', detail: 'bob/brief.json or bob/ledger.json is missing' }
+  if (!m.schema) return { ok: false, reason: 'BOB’s own rule file is missing or does not read', next: 'You need to reinstall BOB', detail: 'bob/schema.json is missing or does not parse in the plugin folder' }
+  if (m.parseErrors.length) return { ok: false, reason: 'a BOB record file does not read as it should', next: 'You need to: ask Claude to restore the file from git, or to remove stray typed text if it was never committed. Text typed while a file pane is open lands in the file: close file panes before typing', detail: m.parseErrors.join('; ') }
+  if (!m.brief || !m.ledger) return { ok: false, reason: 'the brief or the ledger is missing', next: 'You need to: ask Claude to design and adopt this project (the BOB pane offers Adopt once the proposal exists), or restore the files from git', detail: 'bob/brief.json or bob/ledger.json is missing' }
   const active = activeIncrement(m)
   if (!active) {
     if (isIdle(m)) return { ok: true, note: `none needed: ${IDLE}` }
@@ -115,7 +123,7 @@ export function approvalVerdict(m: Model): Verdict {
       ok: false,
       kind: 'unapproved',
       reason: 'no round is approved yet',
-      next: proposed ? `Ash needs to: press Approve for “${titleOf(proposed)}” in the BOB pane (a person’s click is the only thing that approves)` : 'Ash needs to: ask Claude to propose the next round, then approve it in the BOB pane',
+      next: proposed ? `You need to: press Approve for “${titleOf(proposed)}” in the BOB pane (a person’s click is the only thing that approves)` : 'You need to: ask Claude to propose the next round, then approve it in the BOB pane',
       detail: `no increment in bob/ledger.json has state active${proposed ? `; ${proposed.id} is ${proposed.state}` : ''}`,
     }
   }
@@ -127,14 +135,14 @@ export function approvalVerdict(m: Model): Verdict {
     return {
       ok: false,
       reason: 'the brief changed after this round was approved',
-      next: `Ash needs to: press Approve again for “${titleOf(active)}” in the BOB pane, against the current brief`,
+      next: `You need to: press Approve again for “${titleOf(active)}” in the BOB pane, against the current brief`,
       detail: `bob/brief.json changed after approval ${ids}: its hash ${short(m.hash)} matches no approval of ${active.id}; a new record at brief_hash ${m.hash ?? 'unknown'} is needed`,
     }
   }
   return {
     ok: false,
     reason: 'no approval covers this round at the current brief',
-    next: `Ash needs to: press Approve for “${titleOf(active)}” in the BOB pane`,
+    next: `You need to: press Approve for “${titleOf(active)}” in the BOB pane`,
     detail: `no approval record in bob/approvals.json covers ${active.id} at brief hash ${short(m.hash)}`,
   }
 }
@@ -199,10 +207,10 @@ export function describe(m: Model, pf: Preflight | null, now: number, face: Set<
   if (verdict && !verdict.ok) blocker = verdict.reason
 
   const fresh = !m.governed && !m.ownLedger && !m.fixtures
-  let next = 'Ash needs to: approve an increment and set it active'
+  let next = 'You need to: approve an increment and set it active'
   if (m.place.workspaceError) next = WORKSPACE_REPAIR
-  else if (m.place.workspace && !m.place.project) next = 'Ash needs to: describe your idea in the Start a project box in the BOB pane, or just tell Claude about it'
-  else if (fresh) next = `Ash needs to: tell Claude about ${m.place.project}; Claude designs it with design-with-bob, and the BOB pane offers Adopt once the design is approved`
+  else if (m.place.workspace && !m.place.project) next = 'You need to: describe your idea in the Start a project box in the BOB pane, or just tell Claude about it'
+  else if (fresh) next = `You need to: tell Claude about ${m.place.project}; Claude designs it with design-with-bob, and the BOB pane offers Adopt once the design is approved`
   const idle = !!m.governed && !!m.ledger && verdict?.ok === true && isIdle(m)
   if (idle) next = 'Claude: propose the next round before new build work; BOB is idle, so edits are allowed until then'
   if (active) {
@@ -220,9 +228,9 @@ export function describe(m: Model, pf: Preflight | null, now: number, face: Set<
     if (verdict && !verdict.ok) next = verdict.next
     else if (unproven) next = `Claude: capture proof for “${textOf(unproven.id)}”`
     else if (toVerify) next = `Claude: verify “${textOf(toVerify.id)}” against its check`
-    else if (toSee) next = `Ash needs to: press I’ve seen this for “${textOf(toSee.id)}” in the BOB pane`
+    else if (toSee) next = `You need to: press I’ve seen this for “${textOf(toSee.id)}” in the BOB pane`
     else if (unstarted) next = `Claude: start on “${textOf(unstarted.id)}”`
-    else next = `Ash needs to: press Approve on the next round in the BOB pane; “${titleOf(active)}” closes with it`
+    else next = `You need to: press Approve on the next round in the BOB pane; “${titleOf(active)}” closes with it`
   }
 
   let stale: string | null = null
@@ -298,8 +306,8 @@ export type PageMeta = { project: string; generatedAt: string; repo: string }
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 const chipClass = (r: Row) =>
   !r.known ? 'bad' : r.state === 'accepted' || r.state === 'verified' ? 'ok' : r.state === 'implemented' || r.state === 'reported' ? 'info' : r.state === 'designed' ? 'warn' : r.state === 'blocked' ? 'bad' : 'dim'
-const doer = (next: string) => (/^Ash needs to/i.test(next) ? 'ASH NEEDS TO' : /^Claude/i.test(next) ? 'CLAUDE' : 'NEXT')
-const stripDoer = (next: string) => next.replace(/^(Ash needs to:?|Claude:?)\s*/i, '')
+const doer = (next: string) => (PERSON_DOER.test(next) ? 'YOU NEED TO' : /^Claude/i.test(next) ? 'CLAUDE' : 'NEXT')
+const stripDoer = (next: string) => next.replace(/^(You need to:?|Ash needs to:?|Claude:?)\s*/i, '')
 
 export function renderStatusHtml(b: Board, meta: PageMeta, assets: PageAssets | null = null): string {
   const img = (b64: string | undefined) => (b64 ? `data:image/png;base64,${b64}` : '')

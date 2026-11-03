@@ -2,6 +2,8 @@
 
 Test: open a new session and ask "Read docs/handoff.md and tell me what to do tomorrow." If the answer is wrong, this file is wrong.
 
+**Since 29 October 2026 the current owners, state and next steps are in `docs/TEAM-HANDOVER.md`, not here.** This file keeps the decisions and landmines from the build; "What the next person should do" below is the 26 October list, kept as history.
+
 ## Summary
 BOB is a Claude Code plugin that makes builds designed-first, gated and visible for non-technical Steppers. Current state and what is next: "What the next person should do" at the end of this file (consolidated 26 October 2026). History, state as at 22 October 2026: Build 1 merged (plugin 0.1.0: pane, Gate A, Gate B, state guard, preflight, /bob status). Build 2 Part A merged (plugin 0.2.0 then 0.2.1: `/bob adopt`, `/bob approve`, the `bob-adopt` skill, a preflight that passes on an adopted repo, every repo path under the session root). Build 2 Part B done to step 12: AquaAgent is governed on its branch `bob-adopt` (INC-00 active under AP-01, Gate A seen live, the `bob` check seen red on a dummy), with the adopt pull request https://github.com/ashton-netizen/deep-dive-agent/pull/131 open for Ash (NEEDS ASH). Two things wait on Ash: adding `bob` to AquaAgent's main ruleset, and `/bob approve INC-01`. Owner: Ash.
 
@@ -139,3 +141,21 @@ Off the critical path (run when the path is waiting, never instead of it):
 - tAItans adopt (Build 3 item 1, second half). Its folder is the publish dir: switch to main before any deploy; adopt never deploys.
 - Spikes: one scheduled cloud session on a repo carrying BOB (item 6); the bob-reviewer profile agent (item 7).
 - AquaAgent INC-02: R-AQ-14 (min_checks_per_claim counted) and R-AQ-15 (Greenlight 1 to 3 owners). AquaAgent pull requests 139, 142 and 144 are product work, not BOB.
+
+## Decisions taken after the handover (30 October 2026, plugin 0.19.5)
+- A person step reads "You need to", never a name: the pane, `docs/status.html` and `docs/map.html` are read by whoever is at the screen. The doer label is `YOU NEED TO`; "Ash needs to" is still read (`PERSON_DOER` in `hooks/board.ts`, the one home) so older pages parse.
+- Gate A's refusal is read by Claude as a tool result, where "you" would mean Claude, so `forClaude` rewrites the step as "the person at the screen needs to". Claude relays it; it never takes a person's step.
+- An approval's started event and the prompt it submits name the approver from `bob/approvals.json` (`git config user.name` at the press). An empty git name is no longer a typed command for the person: Claude asks their name and sets it.
+- The repository is https://github.com/sip-stepchange/bob. Records and history keep `ashton-netizen` addresses as written; only the live instructions changed.
+
+## Decisions taken on 2 November 2026 (plugin 0.20.0, the best of Addy Osmani's agent-skills)
+- Read: github.com/addyosmani/agent-skills (25 skills, MIT, commit of 1 November 2026). Not installed beside BOB: its own /spec, /plan and /build commands and auto-activating skills would give Claude a second build process next to BOB's gates. Borrowed, in BOB's own words with a credit line: interview-me and idea-refine (design), incremental-implementation, debugging-and-error-recovery and doubt-driven-development (build).
+- `skills/build-with-bob` is the one home for how a round runs and for the reviewer step; adopt-under-bob step 7 and design-with-bob point at it. It states the code's real rule (`reviewed` in hooks/register.tsx): two distinct files under docs/evidence/review/, each with a `Verdict: PASS` line, each named by an evidence record of the round.
+- The Approve prompt names build-with-bob (test 'pressing Approve starts the round under the build-with-bob skill', seen red on 0.19.5).
+- design-with-bob asks one question at a time with a best guess (Ash's intent.md said one at a time; the skill, ONBOARDING and mags-first-session said up to four), plays the idea back with a Not building line and waits for an explicit yes. `bob/brief.md` gains a required `Not building` section; check_design_room.py refuses a brief without it, and the design-room fixture was restamped (brief 0a24f06928b1).
+- The workspace template names build-with-bob, but BOB never overwrites a workspace CLAUDE.md, so a workspace made before 0.20.0 keeps the old text. The Approve prompt carries the rule regardless.
+
+## Owner decisions, 3 November 2026
+- Lukas is spelt Lukas everywhere (earlier files mixed in "Lucas").
+- BOB will never be listed in Anthropic's plugin directory, so it needs no LICENSE file or icon. `claude plugin validate .` still prints LICENSE_MISSING and ICON_MISSING under its directory profile; both are advisory and the check passes.
+- Mags and Lukas reach the repository through the shared `sip-stepchange` GitHub account.

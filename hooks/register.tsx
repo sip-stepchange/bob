@@ -5,7 +5,7 @@ import type { Pending, Preflight } from '../types'
 import { buildMapData, designMapData, renderMap, QUESTION, type MapData, type MapFile } from './map'
 import { lightUp, toOpml, toProduct, toProductFromMindNode, type Product } from './product'
 import { STALE_MS, activeIncrement, canonical, approvalVerdict, clipText, describe, evidenceFor, renderStatusHtml, scopeHashOf, sha256Bytes, short, stateWords, statusText, titleOf, when } from './board'
-import { WORKSPACE_FILE, WORKSPACE_REPAIR } from './board'
+import { WORKSPACE_FILE, WORKSPACE_REPAIR, forClaude } from './board'
 import type { Any, Model, Place, Verdict } from './board'
 
 // BOB, Build 1. One hooks module: the board pane, Gate A (approval), Gate B
@@ -429,18 +429,18 @@ function proposalRefusals(schema: Any, p: Any): string[] {
   return out
 }
 
-const refusedText = (what: string, reasons: string[], next = what === 'adopt' ? `Claude: fix the proposal at ${PROPOSAL_PATH}; Ash then presses Adopt in the BOB pane` : 'Ash needs to: fix what is named above, then try again from the BOB pane') =>
+const refusedText = (what: string, reasons: string[], next = what === 'adopt' ? `Claude: fix the proposal at ${PROPOSAL_PATH}; you then press Adopt in the BOB pane` : 'You need to: fix what is named above, then try again from the BOB pane') =>
   [`BOB ${what} refused. Nothing was written.`, ...reasons.map(r => `- ${r}`), `Next action: ${next}.`].join('\n')
 
 
 async function adopt($: Engine): Promise<string> {
   const errors: string[] = []
   const schema = await readJson($, `${$.plugin.root}/bob/schema.json`, errors)
-  if (!schema) return refusedText('adopt', ['bob/schema.json is missing or does not parse in the plugin folder. Ash needs to reinstall BOB'])
+  if (!schema) return refusedText('adopt', ['bob/schema.json is missing or does not parse in the plugin folder. You need to reinstall BOB'])
 
   const place = await locate($)
   if (place.workspaceError) return refusedText('adopt', [place.workspaceError], WORKSPACE_REPAIR)
-  if (place.workspace && !place.project) return refusedText('adopt', ['this is the BOB workspace and no project is current, so there is nothing to adopt'], 'Ash needs to: open a project from the Projects box in the BOB pane, or start one there')
+  if (place.workspace && !place.project) return refusedText('adopt', ['this is the BOB workspace and no project is current, so there is nothing to adopt'], 'You need to: open a project from the Projects box in the BOB pane, or start one there')
   const root = place.root
   // R-bob-05: a repo that already holds a ledger (or sources, or approvals) but no
   // brief is adopted by merging, never by overwriting. Only bob/brief.json means
@@ -503,7 +503,7 @@ async function adopt($: Engine): Promise<string> {
       }
     : ledger
   const mergedSources: Any = priorSources ? { ...priorSources, sources: mergeList('source', priorSources.sources ?? [], sources.sources) } : sources
-  if (clashes.length) return refusedText('adopt', clashes, `Claude: change the ids in ${PROPOSAL_PATH}; Ash then presses Adopt in the BOB pane`)
+  if (clashes.length) return refusedText('adopt', clashes, `Claude: change the ids in ${PROPOSAL_PATH}; you then press Adopt in the BOB pane`)
 
   const wrote: string[] = []
   await $.fs.write(at(root, 'bob/ledger.json'), pretty(mergedLedger)); wrote.push('bob/ledger.json')
@@ -515,7 +515,7 @@ async function adopt($: Engine): Promise<string> {
   const incIds = (ledger.increments as Any[]).map(i => `${i.id} ${i.state}`).join(', ')
   const name = String(p.brief.project?.name ?? 'this repo')
   const first = (ledger.increments as Any[])[0]
-  const line = `- adopt, ${stamp()}: implemented. bob/brief.json (${(brief.requirements as Any[]).length} requirements), bob/ledger.json (${incIds || 'no increments'}; ${(ledger.evidence as Any[]).length} evidence records), bob/sources.json (${(p.sources as Any[]).length} sources), bob/approvals.json (empty). Evidence: ${PROPOSAL_PATH}. Ash needs to: press Approve for “${titleOf(first)}” in the BOB pane.`
+  const line = `- adopt, ${stamp()}: implemented. bob/brief.json (${(brief.requirements as Any[]).length} requirements), bob/ledger.json (${incIds || 'no increments'}; ${(ledger.evidence as Any[]).length} evidence records), bob/sources.json (${(p.sources as Any[]).length} sources), bob/approvals.json (empty). Evidence: ${PROPOSAL_PATH}. You need to: press Approve for “${titleOf(first)}” in the BOB pane.`
   const current = await readText($, at(root, 'docs/project-status.md'))
   const status = current === null
     ? `# ${name} · project status (living file, update in place)\n\nGoverned by BOB. States and transitions: bob/schema.json in the BOB plugin.\n\n## Build log (one line per step: step, state, evidence)\n${line}\n`
@@ -525,7 +525,7 @@ async function adopt($: Engine): Promise<string> {
   return [
     `BOB adopt: wrote ${wrote.length} files, refused 0 (under ${root}).`,
     ...wrote.map(w => `- wrote ${w}`),
-    `Gate A is now engaged: no increment is active, so every write is refused until Ash presses Approve for “${titleOf(first)}” in the BOB pane.`,
+    `Gate A is now engaged: no increment is active, so every write is refused until you press Approve for “${titleOf(first)}” in the BOB pane.`,
     'Nothing was committed: committing is a Gate A decision in the session.',
   ].join('\n')
 }
@@ -593,7 +593,7 @@ async function approve($: Engine, idArg: string, originKind: string | undefined)
   } catch {
     approver = ''
   }
-  if (!approver) return refusedText('approve', ['git config user.name is empty, so the approver cannot be named. Ash needs to run: git config user.name "<name>"'])
+  if (!approver) return refusedText('approve', ['git config user.name is empty, so the approver cannot be named'], 'Claude: ask the person for their name, set git config user.name to it, then they press Approve again')
 
   const n = m.approvals.length + 1
   const now = stamp()
@@ -636,7 +636,7 @@ async function approve($: Engine, idArg: string, originKind: string | undefined)
 // The name rules live in bob/schema.json (workspace).
 // ---------------------------------------------------------------------------
 
-const RETYPE = 'Ash needs to: fix what is named above and try again, or tell Claude the idea and Claude starts it'
+const RETYPE = 'You need to: fix what is named above and try again, or tell Claude the idea and Claude starts it'
 
 async function workspaceRules($: Engine): Promise<Any | null> {
   return ((await readJson($, `${$.plugin.root}/bob/schema.json`, [])) ?? {}).workspace ?? null
@@ -685,7 +685,7 @@ async function newProject($: Engine, nameArg: string, originKind: string | undef
   const name = nameArg.trim()
   if (!name) return refusedText('new', ['no project name given (lowercase letters, digits and hyphens)'], RETYPE)
   const rules = await workspaceRules($)
-  if (!rules) return refusedText('new', ['bob/schema.json in the plugin folder has no workspace section'], 'Ash needs to reinstall BOB')
+  if (!rules) return refusedText('new', ['bob/schema.json in the plugin folder has no workspace section'], 'You need to reinstall BOB')
   const place = await locate($)
   const why = await placeRefusals($, place, rules, name)
   if (why.length) return refusedText('new', why, RETYPE)
@@ -698,13 +698,13 @@ async function newProject($: Engine, nameArg: string, originKind: string | undef
   } catch {
     git = null
   }
-  if (!git || git.exitCode !== 0) return refusedText('new', ['stack gap: git not found, and every BOB project is a git repo'], 'Ash needs to install git, then try again')
+  if (!git || git.exitCode !== 0) return refusedText('new', ['stack gap: git not found, and every BOB project is a git repo'], 'You need to install git, then try again')
   const init = await $.process.run(['git', 'init', '-b', 'main', dir], { cwd: place.session })
   if (init.exitCode !== 0) return refusedText('new', [`git init failed for ${dir}: ${String(init.stderr ?? '').trim() || `exit ${init.exitCode}`}`], RETYPE)
 
   const wrote: string[] = []
   const now = stamp()
-  await $.fs.write(at(dir, 'docs/project-status.md'), `# ${name} · project status (living file, update in place)\n\nA BOB project in the workspace ${place.session}. Not governed yet: no bob/brief.json.\n\n## Build log (one line per step: step, state, evidence)\n- project started, ${now}: implemented. Folder ${dir} made, git initialised on main, nothing committed; registered in ${WORKSPACE_FILE} as the current project. Next: Ash tells Claude about the idea; Claude designs it with design-with-bob, and the BOB pane offers Adopt once the design is approved.\n`)
+  await $.fs.write(at(dir, 'docs/project-status.md'), `# ${name} · project status (living file, update in place)\n\nA BOB project in the workspace ${place.session}. Not governed yet: no bob/brief.json.\n\n## Build log (one line per step: step, state, evidence)\n- project started, ${now}: implemented. Folder ${dir} made, git initialised on main, nothing committed; registered in ${WORKSPACE_FILE} as the current project. Next: you tell Claude about the idea; Claude designs it with design-with-bob, and the BOB pane offers Adopt once the design is approved.\n`)
   wrote.push(`${name}/docs/project-status.md`)
   const notes: string[] = []
   if (!(await exists($, at(place.session, 'CLAUDE.md')))) {
@@ -713,7 +713,7 @@ async function newProject($: Engine, nameArg: string, originKind: string | undef
       await $.fs.write(at(place.session, 'CLAUDE.md'), template)
       wrote.push('CLAUDE.md (the workspace template, written once)')
     } else {
-      notes.push('- skipped CLAUDE.md: the plugin template is missing. Ash needs to reinstall BOB')
+      notes.push('- skipped CLAUDE.md: the plugin template is missing. You need to reinstall BOB')
     }
   }
   // Last on purpose: the project becomes current only once its folder is whole.
@@ -727,7 +727,7 @@ async function newProject($: Engine, nameArg: string, originKind: string | undef
     ...wrote.map(w => `- wrote ${w}`),
     ...notes,
     'The pane now shows this project; the gates and the Adopt button work on it.',
-    'Next action: Ash needs to: tell Claude about the idea; Claude designs it with design-with-bob, and the BOB pane offers Adopt once the design is approved.',
+    'Next action: You need to: tell Claude about the idea; Claude designs it with design-with-bob, and the BOB pane offers Adopt once the design is approved.',
   ].join('\n')
 }
 
@@ -735,7 +735,7 @@ async function switchProject($: Engine, nameArg: string, originKind: string | un
   const name = nameArg.trim()
   if (!name) return refusedText('switch', ['no project named. Open a project from the Projects box in the BOB pane'], RETYPE)
   const rules = await workspaceRules($)
-  if (!rules) return refusedText('switch', ['bob/schema.json in the plugin folder has no workspace section'], 'Ash needs to reinstall BOB')
+  if (!rules) return refusedText('switch', ['bob/schema.json in the plugin folder has no workspace section'], 'You need to reinstall BOB')
   const place = await locate($)
   const why = await placeRefusals($, place, rules, name)
   if (why.length) return refusedText('switch', why, RETYPE)
@@ -930,7 +930,7 @@ async function pressApprove($: Engine, id: string, e: Any) {
   const refused = text.includes('refused')
   const m = await load($)
   const inc = ((m.ledger?.increments ?? []) as Any[]).find(i => i.id === id)
-  const approver = String(m.approvals[m.approvals.length - 1]?.approver ?? 'you')
+  const approver = String(m.approvals[m.approvals.length - 1]?.approver ?? 'the person')
   await update($, noteAtom, () => (refused ? 'Approve did not go through; Claude has the reason and says it in the chat.' : `Approved: “${titleOf(inc)}” by ${approver}. Claude starts now.`))
   await resetRound($)
   // An approval that lands while nobody is running stalls the build (29 October 2026,
@@ -942,7 +942,7 @@ async function pressApprove($: Engine, id: string, e: Any) {
     const runs: Any[] = m.ledger.runs ?? []
     const events: Any[] = m.ledger.events ?? []
     const run = { id: `RUN-${String(runs.length + 1).padStart(2, '0')}`, increment_id: id, state: 'running', started_at: now, last_event_at: now, session_id: null, cancel_requested: false, exit_reason: null, cost_usd_reported: null, created_at: now, source: 'human', is_synthetic: false }
-    const event = { id: `EV-BOB-${String(events.length + 1).padStart(2, '0')}`, run_id: run.id, at: now, origin: 'human', type: 'started', detail: `“${titleOf(inc)}” started by Ash’s click on Approve`, created_at: now, source: 'human', is_synthetic: false }
+    const event = { id: `EV-BOB-${String(events.length + 1).padStart(2, '0')}`, run_id: run.id, at: now, origin: 'human', type: 'started', detail: `“${titleOf(inc)}” started by ${approver}’s click on Approve`, created_at: now, source: 'human', is_synthetic: false }
     await $.fs.write(at(m.root, m.ledgerPath), pretty({ ...m.ledger, runs: [...runs, run], events: [...events, event] }))
     await update($, runAtom, () => run.id)
     const landedIn = (await read($, turnAtom)) ?? ''
@@ -953,7 +953,7 @@ async function pressApprove($: Engine, id: string, e: Any) {
   if (!refused) {
     const ids = ((inc?.requirement_ids ?? []) as string[]).join(', ')
     await $.prompt.submit({
-      text: `Ash approved ${id}${inc?.title ? ` (${String(inc.title)})` : ''}. Start it now and run it to the end in this window: build it, capture evidence for ${ids || 'its requirement ids'} from tool results, rebuild docs/map.html, then give the three-line report (stage, live, next step with its doer). Do not stop to ask; ask Ash only for a person-only click, as one popup.`,
+      text: `${approver} approved ${id}${inc?.title ? ` (${String(inc.title)})` : ''}. Start it now and run it to the end in this window, following the build-with-bob skill: build it in thin slices, each proven red then green, capture evidence for ${ids || 'its requirement ids'} from tool results, get the reviewers' fresh-eyes verdicts before it closes, rebuild docs/map.html, then give the three-line report (stage, live, next step with its doer). Do not stop to ask; ask ${approver} only for a person-only click, as one popup.`,
       asUser: true,
     })
   }
@@ -1164,7 +1164,7 @@ async function pressPause($: Engine, e: Any) {
 }
 
 // The refusal Claude reads: plain words first, then the ids and hashes it needs.
-const denial = (gate: string, v: Extract<Verdict, { ok: false }>) => `BOB ${gate} refused this write. ${v.reason}. Next action: ${v.next}.${v.detail ? ` For the files: ${v.detail}.` : ''}`
+const denial = (gate: string, v: Extract<Verdict, { ok: false }>) => `BOB ${gate} refused this write. ${v.reason}. Next action: ${forClaude(v.next)}.${v.detail ? ` For the files: ${v.detail}.` : ''}`
 
 // Phase one (U-07, seen 29 October 2026): with no round approved, Claude may
 // still PROPOSE: write bob/brief.json (the state guard still applies) and
@@ -1225,7 +1225,7 @@ function transitionVerdict(m: Model, after: Any, source: string, face: Set<strin
       if (!has) return `${r.id}: verified needs an evidence record in bob/ledger.json (kind ${kinds.join(', ')}) and none exists for it. Model prose is never evidence`
       if (face.has(r.id) && !evidenceFor(m, [r.id]).some(ev => ev.origin === 'human')) return `${r.id}: this promise is about what a person sees (a screen in bob/product.json rests on it), so verified needs a person's own look on record: an evidence record with origin human. A test alone leaves it at built`
     }
-    if (to === 'accepted' && source !== 'human') return `${r.id}: accepted needs a human on the transition, and this write comes from ${source}. Ash needs to set it`
+    if (to === 'accepted' && source !== 'human') return `${r.id}: accepted needs a human on the transition, and this write comes from ${source}. A person needs to set it`
   }
   return null
 }
@@ -1502,7 +1502,7 @@ export const register: Register = on => {
     const text = await newProject($, String((e as Any).name ?? ''), 'plugin')
     await writePage($)
     return text.startsWith('BOB new refused') ? { deny: text } : { result: text }
-  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'BOB start_project failed before it wrote anything. Next action: Claude: report the failure to Ash.' }))
+  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'BOB start_project failed before it wrote anything. Next action: Claude: report the failure to the person.' }))
 
   on('command.run', { command: 'bob' }, async ($, e) => {
     const result = await bobCommand($, e as Any)
@@ -1543,14 +1543,14 @@ export const register: Register = on => {
           return { deny: 'BOB state guard refused this write: it would leave bob/brief.json as text that does not parse as JSON. Next action: Claude: write the whole file as valid JSON.' }
         }
         const why = transitionVerdict(m, after ?? {}, 'ai', await facePromises($, m))
-        if (why) return { deny: `BOB state guard refused this write. ${why}. Next action: Claude: capture evidence first, or leave the state for Ash.` }
+        if (why) return { deny: `BOB state guard refused this write. ${why}. Next action: Claude: capture evidence first, or leave the state for the person.` }
       }
     }
 
     if (m.governed && inRepo) await update($, touchedAtom, list => [...list, path].slice(-100))
     redraw($)
     return next(e)
-  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'BOB Gate A: its guard failed, so this write is refused. Next action: Claude: report the failure to Ash.' }))
+  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'BOB Gate A: its guard failed, so this write is refused. Next action: Claude: report the failure to the person.' }))
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const command = String(e.command ?? '')
@@ -1568,7 +1568,7 @@ export const register: Register = on => {
     if (m.governed) await update($, touchedAtom, list => [...list, `bash: ${e.command.slice(0, 60)}`].slice(-100))
     redraw($)
     return next(e)
-  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'BOB Gate A: its guard failed, so this command is refused. Next action: Claude: report the failure to Ash.' }))
+  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'BOB Gate A: its guard failed, so this command is refused. Next action: Claude: report the failure to the person.' }))
 
   // Gate B: a round that wrote files cannot end until the active increment's
   // requirement ids gained an evidence record (bob/schema.json, gates.B_evidence).
