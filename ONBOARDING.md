@@ -1,15 +1,15 @@
 # BOB handover: you are taking it over
 
-You are Claude Code on the Mac of one of BOB's new owners: Alicia, Mags or Lucas. On 29 October 2026 Ash handed BOB to the three of them and stepped out: Alicia owns its foundations and adoption (a Step Change GitHub organisation, the team able to reach it, BOB briefed and used), Mags decides its future and builds with it, Lukas supports Mags with Alicia. Your job in this session: get BOB running on this Mac with the person typing nothing but their idea, take them through one real half-hour session, and help them record a verdict in the repository. Plain Australian English. No codes, versions, hashes or file paths in what you say to them unless they ask. Name the doer on every action line ("Claude" or "<first name> needs to"), one step at a time, never a list of to-dos.
+You are Claude Code on the Mac of one of BOB's new owners: Alicia, Mags or Lukas. On 29 October 2026 Ash handed BOB to the three of them and stepped out: Alicia owns its foundations and adoption (a Step Change GitHub organisation, the team able to reach it, BOB briefed and used), Mags decides its future and builds with it, Lukas supports Mags with Alicia. Your job in this session: get BOB running on this Mac with the person typing nothing but their idea, take them through one real half-hour session, and help them record a verdict in the repository. Plain Australian English. No codes, versions, hashes or file paths in what you say to them unless they ask. Name the doer on every action line ("Claude" or "<first name> needs to"), one step at a time, never a list of to-dos.
 
 ## First, read the handover
 Read `docs/TEAM-HANDOVER.md` in https://github.com/sip-stepchange/bob (public) in full, then `docs/product/intent.md`. Tell the person in three plain sentences what BOB is, what works, and what does not yet. Do not read them the files.
 
 ## If this is Alicia's Mac: the foundations first
-The repository now lives at https://github.com/sip-stepchange/bob (it was Ash's personal `ashton-netizen/bob`; the old address still works). What is left for Alicia, one step at a time:
-1. Claude: confirm with Alicia that `sip-stepchange` is the Step Change organisation she means to keep it in. If it is not, Claude transfers it with `gh api -X POST repos/sip-stepchange/bob/transfer -f new_owner=<organisation>` (an owner of `sip-stepchange` approves) and updates the addresses in this guide, `README.md`, `CLAUDE.md` and `docs/TEAM-HANDOVER.md` on a branch and pull request.
-2. Alicia needs to: add Mags and Lukas to the organisation with write access to the repository (Claude can do it with `gh` if Alicia is an organisation owner and says yes).
-3. Claude: read back branch protection on main and the five required checks (`gh api repos/sip-stepchange/bob/branches/main/protection`). They were set on Ash's account on 21 October 2026 and have not been read since the move. If any is missing, Claude says which, and Alicia approves putting it back.
+The repository now lives at https://github.com/sip-stepchange/bob (it was Ash's personal `ashton-netizen/bob`; the old address still works). Done on 3 November 2026, so nothing is left here unless something changes:
+- `sip-stepchange` is the Step Change GitHub account BOB lives in, confirmed by the owners.
+- Mags and Lukas reach the repository through the shared `sip-stepchange` account; nobody needs adding.
+- Main is still protected: pull request 64 could not be committed straight to main, and all five checks showed as Required on it.
 
 ## Step 1: set BOB up (you do it; they watch)
 1. Make a folder called `BOB` in their home folder if it is not there (one workspace per Mac; each project becomes a subfolder).
@@ -29,7 +29,7 @@ The repository now lives at https://github.com/sip-stepchange/bob (it was Ash's 
 ## Step 3: the verdict goes in the repository
 Ask them three things and write the answers exactly: what they built (their words), what was confusing or annoying, and whether they would use it for a real job. Then, on a branch of https://github.com/sip-stepchange/bob, add a dated section at the top of `docs/project-status.md` with their first name, the three answers, the picture link and your notes, and open a pull request. Never push to main. If they have no GitHub access yet, save the same text as `BOB-verdict-<first name>-<date>.md` in their BOB folder and tell them it is there for whoever opens the pull request.
 
-When all three have a section there, Mags decides (keep, cut back to the gates and the picture, or stop), with Alicia's and Lucas's notes in front of her, and the decision goes at the top of the same file. Ash does not need to be told.
+When all three have a section there, Mags decides (keep, cut back to the gates and the picture, or stop), with Alicia's and Lukas's notes in front of her, and the decision goes at the top of the same file. Ash does not need to be told.
 
 ## Hard rules
 - Never change main of any repository directly. Branch and pull request only.
