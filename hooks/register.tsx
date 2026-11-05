@@ -410,7 +410,7 @@ function proposalRefusals(schema: Any, p: Any): string[] {
       for (const [n, st] of steps.entries()) if (!String(st?.step ?? '').trim() || !String(st?.verify ?? '').trim()) out.push(`increment ${inc.id}: step ${n + 1} needs both a step and a verify`)
       for (const id of (inc.requirement_ids ?? []) as string[]) {
         const r = reqs.find(x => String(x.id) === id)
-        if (r && !(Array.isArray(r.touches) && r.touches.length && r.touches.every((t: unknown) => typeof t === 'string' && t.trim()))) out.push(`requirement ${id} is in ${inc.id} but lists no touches; name the folders or files its round may change`)
+        if (r && !(Array.isArray(r.touches) && r.touches.length && r.touches.every(validTouch))) out.push(`requirement ${id} is in ${inc.id} but lists no valid touches; name the folders (ending /) or files under the repo its round may change, with no ., .., leading / or ./, or wildcard`)
       }
     }
   }
@@ -837,29 +837,60 @@ async function resetRound($: Engine) {
 // them. BOB's own records (bob/, docs/) are always allowed. A round whose promises
 // declare nothing is not judged: there is no scope to trace a line to.
 const RECORD_PATHS = ['bob/', 'docs/']
-const relIn = (m: Model, path: string): string | null => (path.startsWith(`${m.root}/`) ? path.slice(m.root.length + 1) : null)
+// A path under the repo root with . and .. resolved, so src/bank/../other/x.ts is judged as src/other/x.ts.
+const norm = (p: string) => {
+  const out: string[] = []
+  for (const part of p.split('/')) {
+    if (!part || part === '.') continue
+    if (part === '..') out.pop()
+    else out.push(part)
+  }
+  return out.join('/')
+}
+const relIn = (m: Model, path: string): string | null => {
+  const root = norm(m.root)
+  const abs = norm(path)
+  return abs.startsWith(`${root}/`) ? abs.slice(root.length + 1) : null
+}
+// Judged only when every promise in the round declares touches; a round that mixes declared and
+// undeclared promises cannot be traced, so it is not judged.
 function scopeOf(m: Model, active: Any): string[] | null {
   const ids: string[] = active.requirement_ids ?? []
-  const declared = ((m.brief?.requirements ?? []) as Any[]).filter(r => ids.includes(String(r.id))).flatMap(r => (Array.isArray(r.touches) ? (r.touches as string[]) : []))
-  return declared.length ? declared : null
+  const reqs = ((m.brief?.requirements ?? []) as Any[]).filter(r => ids.includes(String(r.id)))
+  if (!reqs.length || reqs.some(r => !Array.isArray(r.touches) || !r.touches.length)) return null
+  return reqs.flatMap(r => r.touches as string[])
 }
+// A touches entry is a folder (ends in /) or a file under the repo: no ., .., absolute, ./ or wildcard.
+const validTouch = (t: unknown) => typeof t === 'string' && !!t.trim() && t !== '.' && !t.startsWith('/') && !t.startsWith('./') && !t.includes('..') && !t.includes('*') && !t.includes('\\')
 const inPath = (rel: string, p: string) => rel === p || rel.startsWith(p.endsWith('/') ? p : `${p}/`)
 const outsideScope = (rel: string, scope: string[]) => ![...RECORD_PATHS, ...scope].some(p => inPath(rel, p))
 // A typo or a one-line fix skips the check: one old line replaced by one new line.
 const oneLine = (t: unknown) => !String(t ?? '').replace(/\n$/, '').includes('\n')
 const isOneLiner = (e: Any): boolean =>
-  e.tool === 'Edit' ? oneLine(e.old_string) && oneLine(e.new_string)
+  e.replace_all ? false
+  : e.tool === 'Edit' ? oneLine(e.old_string) && oneLine(e.new_string)
   : e.tool === 'MultiEdit' ? Array.isArray(e.edits) && e.edits.length > 0 && (e.edits as Any[]).every(x => oneLine(x.old_string) && oneLine(x.new_string))
   : false
 // Strays not yet written under "Noticed, not done" in the build log.
 async function openStrays($: Engine, m: Model): Promise<string[]> {
   const strays = await read($, strayAtom)
   if (!strays.length) return []
-  const log = (await readText($, at(m.root, 'docs/project-status.md'))) ?? ''
-  const from = log.toLowerCase().indexOf('noticed, not done')
-  const noted = from < 0 ? '' : log.slice(from)
-  return strays.filter(f => !noted.includes(f))
+  const log = ((await readText($, at(m.root, 'docs/project-status.md'))) ?? '').split('\n')
+  const from = log.findIndex(l => /^[\s#*-]*noticed, not done/i.test(l))
+  const rest = from < 0 ? [] : log.slice(from + 1)
+  const stop = rest.findIndex(l => l.startsWith('#'))
+  const noted = (stop < 0 ? rest : rest.slice(0, stop)).join('\n')
+  const named = (f: string) => noted.split(f).some((_, i, parts) => i < parts.length - 1 && !/[\w./-]$/.test(parts[i]) && !/^[\w/-]/.test(parts[i + 1] ?? ''))
+  return strays.filter(f => !named(f))
 }
+// The git subcommand of each real command segment (quoted text never counts; -C and -c options are skipped).
+function gitVerbs(command: string): { verb: string; text: string }[] {
+  return segments(command).flatMap(seg => {
+    const m = seg.bare.match(/^git(?:\s+(?:-C\s+\S+|-c\s+\S+|--[a-z-]+(?:=\S+)?))*\s+([a-z-]+)/)
+    return m ? [{ verb: m[1], text: seg.raw }] : []
+  })
+}
+const namesPath = (text: string, f: string) => text.includes(f) || text.split(/\s+/).some(t => t === '.' || (t.endsWith('/') && f.startsWith(t)))
 
 // Evidence the active increment gained since the round's baseline.
 async function gainedEvidence($: Engine, m: Model, ids: string[]): Promise<Any[]> {
@@ -1431,6 +1462,7 @@ function doneWithoutProof(m: Model, current: string, text: string): string | nul
   const stateOf = (rid: string) => String(((m.brief?.requirements ?? []) as Any[]).find(r => String(r.id) === rid)?.state ?? 'unknown')
   for (const inc of (after?.increments ?? []) as Any[]) {
     if (inc.state !== 'done' || was.get(String(inc.id)) === 'done') continue
+    if (!((inc.requirement_ids ?? []) as string[]).length) return `it sets ${inc.id} to done but ${inc.id} lists no promises, so there is nothing a check has proven`
     const open = ((inc.requirement_ids ?? []) as string[]).filter(rid => !['verified', 'accepted'].includes(stateOf(rid)))
     if (open.length) return `it sets ${inc.id} to done while ${open.join(', ')} ${open.length === 1 ? 'is' : 'are'} not verified; a stage is done only when its check has been run against the real artefact and recorded as evidence`
   }
@@ -1610,8 +1642,8 @@ export const register: Register = on => {
     }
 
     if (m.governed && inRepo) await update($, touchedAtom, list => [...list, path].slice(-100))
-    const round = m.governed && inRepo ? activeIncrement(m) : undefined
-    const rel = round ? relIn(m, path) : null
+    const round = m.governed ? activeIncrement(m) : undefined
+    const rel = round ? relIn(m, String((e as Any).file_path ?? (e as Any).notebook_path ?? '')) : null
     const scope = round && rel ? scopeOf(m, round) : null
     if (rel && scope && outsideScope(rel, scope) && !isOneLiner(e as Any)) await update($, strayAtom, list => (list.includes(rel) ? list : [...list, rel]))
     redraw($)
@@ -1631,15 +1663,19 @@ export const register: Register = on => {
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const command = String(e.command ?? '')
-    const gitCommand = /\bgit\s+(commit|add|restore|checkout|stash)\b/.test(command)
-    if (gitCommand) {
+    const gits = gitVerbs(command)
+    if (gits.length) {
       const strays = await read($, strayAtom)
-      if (/\bgit\s+(restore|checkout|stash)\b/.test(command)) {
-        const reverted = strays.filter(f => command.includes(f))
+      // A restore or checkout that names a stray (or . or its folder) reverts it; --staged only unstages.
+      for (const g of gits.filter(x => (x.verb === 'restore' || x.verb === 'checkout') && !/--(staged|cached)\b/.test(x.text))) {
+        const reverted = strays.filter(f => namesPath(g.text, f))
         if (reverted.length) await update($, strayAtom, list => list.filter(f => !reverted.includes(f)))
-      } else {
+      }
+      for (const g of gits.filter(x => x.verb === 'add' || x.verb === 'commit')) {
         const open = await openStrays($, await load($))
         if (open.length) return { deny: `BOB surgical check: not committing yet. ${open.join(', ')} ${open.length === 1 ? 'is' : 'are'} not in what this round's promises list under touches. Next action: Claude: revert ${open.length === 1 ? 'it' : 'them'} with git restore, or write ${open.length === 1 ? 'it' : 'each'} under "Noticed, not done" in docs/project-status.md, then commit only the round's own changes.` }
+        const blanket = g.verb === 'add' ? /\s(-A|--all|-u|--update|\.)(\s|$)/.test(g.text) : /\s-[a-zA-Z]*a[a-zA-Z]*(\s|$)|\s--all(\s|$)/.test(g.text)
+        if (blanket && (await read($, strayAtom)).length) return { deny: 'BOB surgical check: an unrelated change from this round is still in the working tree, so add the round\'s own files by name, not everything. Next action: Claude: git add the files this round\'s promises list, then commit.' }
       }
     }
     if (!writesFiles(command) && !writesBriefFromBash(command)) return next(e)
@@ -1672,8 +1708,7 @@ export const register: Register = on => {
       return (await reportCheck($, e)) ?? next(e)
     }
     const open = await openStrays($, m)
-    if (!open.length) await update($, strayAtom, () => [])
-    else if (!e.stop_hook_active) {
+    if (open.length && !e.stop_hook_active) {
       return { block: `BOB surgical check: this round changed ${open.length} file(s) that none of its promises list under touches: ${open.join(', ')}. Every changed line must trace to the approved promises. Revert ${open.length === 1 ? 'it' : 'them'} (git restore), or write ${open.length === 1 ? 'it' : 'each'} under "Noticed, not done" in docs/project-status.md for the next round, and do not commit ${open.length === 1 ? 'it' : 'them'}. A typo or one-line fix is exempt.` }
     }
     const wrote = await read($, touchedAtom)

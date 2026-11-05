@@ -146,7 +146,7 @@ def main(folder: str, synthetic: bool = False) -> int:
                     for rid in i.get("requirement_ids") or []:
                         rq = next((x for x in reqs if x.get("id") == rid), None)
                         t = (rq or {}).get("touches")
-                        if rq is not None and not (isinstance(t, list) and t and all(isinstance(x, str) and x.strip() for x in t)): out.append(f"requirement {rid} is in {i.get('id')} but lists no touches; name the folders or files its round may change")
+                        if rq is not None and not (isinstance(t, list) and t and all(isinstance(x, str) and x.strip() and x != "." and not x.startswith(("/", "./")) and ".." not in x and "*" not in x and "\\" not in x for x in t)): out.append(f"requirement {rid} is in {i.get('id')} but lists no valid touches; name the folders (ending /) or files under the repo its round may change, with no ., .., leading / or ./, or wildcard")
                 if i.get("state") != "proposed": out.append(f"increment {i.get('id')}: state must be proposed")
                 for rid in i.get("requirement_ids") or []:
                     if rid not in ids: out.append(f"increment {i.get('id')}: requirement {rid} is not in brief.requirements")

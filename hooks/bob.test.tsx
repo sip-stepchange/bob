@@ -1409,7 +1409,10 @@ test('surgical: git add and git commit are refused while a stray is outstanding,
   await $.tool.call({ tool: 'Bash', command: 'git restore src/other/stray.ts' })
   expect(said(await $.tool.call({ tool: 'Bash', command: 'git add -A' }))).toContain('src/other/second.ts')
   w.files!['docs/project-status.md'] = '# log\n\n## Noticed, not done\n- src/other/second.ts: tidy later\n'
-  expect(said(await $.tool.call({ tool: 'Bash', command: 'git add -A' }))).toBe('')
+  // Noted, so not a refusal for the named add; but everything-at-once is refused while it is still in the tree.
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git add src/bank/ok.ts' }))).toBe('')
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git add -A' }))).toContain('by name')
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git commit -am x' }))).toContain('by name')
 })
 
 test('a stage is not done until its check has run: a ledger write that sets an increment to done is refused while a promise is unverified, and allowed once all are verified', async ($, on) => {
@@ -1430,6 +1433,67 @@ test('a stage may be set to done once every one of its promises is verified', as
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   const done = JSON.stringify({ ...LEDGER, increments: LEDGER.increments.map(i => ({ ...i, state: 'done' })) })
   expect(said(await $.tool.call({ tool: 'Write', file_path: `${ROOT}/bob/ledger.json`, content: done }))).toBe('')
+})
+
+test('surgical: a path written through .. is judged where it lands, a replace_all one-liner is not exempt, and a NotebookEdit path is judged', async ($, on) => {
+  await scopedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/bank/../other/x.ts`, content: 'x' })
+  await $.tool.call({ tool: 'Edit', file_path: `${ROOT}/README.md`, old_string: 'a', new_string: 'b', replace_all: true })
+  await $.tool.call({ tool: 'NotebookEdit', notebook_path: `${ROOT}/analysis.ipynb`, new_source: 'x' } as any)
+  const blocked = (await $.classic.Stop(stopInput())).block ?? ''
+  expect(blocked).toContain('src/other/x.ts')
+  expect(blocked).toContain('README.md')
+  expect(blocked).toContain('analysis.ipynb')
+})
+
+test('surgical: a round that mixes promises with and without touches is not judged', async ($, on) => {
+  const mixed = { requirements: BRIEF.requirements.map(r => (r.id === 'R-T-03' ? { ...r, touches: ['src/bank/'] } : r)) }
+  await approvedWorld(on, {
+    brief: mixed,
+    approvals: [{ id: 'AP-T-2', brief_hash: await sha256(JSON.stringify(mixed)), scope_increment_ids: ['INC-T-2'], approver: 'Mags (fixture)', approved_at: T, ...base('human') }],
+  })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/pulls/own.ts`, content: 'x' })
+  expect(((await $.classic.Stop(stopInput())).block ?? '')).not.toContain('surgical')
+})
+
+test('surgical: a noted path must match whole, inside the Noticed, not done section only', async ($, on) => {
+  const w = await scopedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/other/a.ts`, content: 'x' })
+  w.files!['docs/project-status.md'] = '## Noticed, not done\n- src/other/a.tsx later\n\n## Evidence\n- src/other/a.ts proven\n'
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git commit -m x' }))).toContain('src/other/a.ts')
+})
+
+test('surgical: git words inside quotes are not commands, -C and -c are skipped, git restore --staged does not clear a stray and git restore . does', async ($, on) => {
+  await scopedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/other/stray.ts`, content: 'x' })
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'grep "git commit" docs/x.md' }))).toBe('')
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git -C . commit -m x' }))).toContain('surgical')
+  await $.tool.call({ tool: 'Bash', command: 'git restore --staged src/other/stray.ts' })
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git add src/bank/ok.ts' }))).toContain('surgical')
+  await $.tool.call({ tool: 'Bash', command: 'git restore .' })
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git add src/bank/ok.ts' }))).toBe('')
+})
+
+test('adopt refuses touches that are vacuous or cannot match: ., .., ./src/, /abs and wildcards', async ($, on) => {
+  const bad = proposal() as any
+  bad.brief.requirements[2].touches = ['src/', '..', './x/']
+  const w = await adoptWorld(on, bad)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(await adopt($)).toContain('lists no valid touches')
+  expect(w.writes!.length).toBe(0)
+})
+
+test('an assumed event is accepted in the ledger, and a stage with no promises cannot be set to done', async ($, on) => {
+  await approvedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const event = { id: 'EV-T-3', run_id: 'RUN-T-9', at: T, origin: 'runtime', type: 'assumed', detail: 'used the bank date format; the brief did not say', ...base('ai') }
+  expect(said(await $.tool.call({ tool: 'Write', file_path: `${ROOT}/bob/ledger.json`, content: JSON.stringify({ ...LEDGER, events: [...LEDGER.events, event] }) }))).toBe('')
+  const empty = JSON.stringify({ ...LEDGER, increments: LEDGER.increments.map(i => (i.id === 'INC-T-2' ? { ...i, requirement_ids: [], state: 'done' } : i)) })
+  expect(said(await $.tool.call({ tool: 'Write', file_path: `${ROOT}/bob/ledger.json`, content: empty }))).toContain('lists no promises')
 })
 
 test('no questions mid-round: AskUserQuestion is refused while an increment is active, passes with BLOCKER in a header, and passes in an idle repo', async ($, on) => {
@@ -1456,7 +1520,7 @@ test('adopt refuses a build increment with no steps, a step with no verify, and 
   const out = await adopt($)
   expect(out).toContain('refused')
   expect(out).toContain('needs both a step and a verify')
-  expect(out).toContain('lists no touches')
+  expect(out).toContain('lists no valid touches')
   expect(out).not.toContain('INC-00')
   expect(w.writes!.length).toBe(0)
 })
