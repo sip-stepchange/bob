@@ -22,6 +22,9 @@
       },
       {
         "id": "R-roster-01",
+        "touches": [
+          "sheet/"
+        ],
         "priority": "MUST",
         "text": "a submitted request appears as one row in the roster sheet within a minute",
         "check": "open the sheet after a test submit",
@@ -36,6 +39,9 @@
       },
       {
         "id": "R-roster-02",
+        "touches": [
+          "sheet/"
+        ],
         "priority": "MUST",
         "text": "the form refuses a request outside the roster rules",
         "check": "submit an out-of-rules request and see the refusal",
@@ -50,6 +56,9 @@
       },
       {
         "id": "R-roster-03",
+        "touches": [
+          "sheet/"
+        ],
         "priority": "SHOULD",
         "text": "a CSV of the week's requests exists every Friday",
         "check": "open Friday's CSV",
@@ -111,6 +120,12 @@
           "R-roster-01",
           "R-roster-02",
           "R-roster-03"
+        ],
+        "steps": [
+          {
+            "step": "build the form and the sheet row",
+            "verify": "submit one synthetic row and open the sheet to see it"
+          }
         ],
         "state": "proposed",
         "approval_id": null,

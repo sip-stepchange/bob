@@ -25,6 +25,7 @@ declare module 'claude-code' {
       note: string | null
       turn: string | null
       proven: boolean
+      stray: string[]
       run: string | null
       runTurn: string
     }

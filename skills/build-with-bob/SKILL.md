@@ -11,7 +11,7 @@ BOB's gates already hold the hard lines: no edit before Approve (Gate A), no rou
 
 ## Before the first edit
 1. Read the round: its title and requirement ids in `bob/ledger.json`, each promise's `text` and `check` in `bob/brief.json`, and the "Not building" list in `bob/brief.md`. The `check` is what a person will be able to see; build towards that.
-2. Write the slice plan as a short list in `docs/project-status.md`: one line per slice, each naming the promise it proves. A slice is the thinnest piece that works end to end (input to output a person could try), not a layer (all the data first, then all the screens).
+2. Write the slice plan as a short list in `docs/project-status.md`: one line per slice, each naming the promise it proves. Start from the increment's `steps` in `bob/ledger.json` (each has a `verify`): a step is not done until its `verify` has been run against the real artefact and the output saved as evidence. BOB refuses to set an increment to done while any of its promises is unverified. A slice is the thinnest piece that works end to end (input to output a person could try), not a layer (all the data first, then all the screens).
 3. Order the slices so the riskiest unknown goes first. If a slice cannot be proven inside this round, say so now, not at the end.
 
 ## Each slice
@@ -23,8 +23,11 @@ BOB's gates already hold the hard lines: no edit before Approve (Gate A), no rou
 6. **Commit the slice** on the round's branch with a message that names the promise. One slice, one commit.
 
 ## Stay inside the round
-- Touch only what this round's promises need. No tidying nearby code, no renames, no extra features because they seem useful, nothing from the "Not building" list.
+- Touch only what this round's promises need: every changed line traces to an approved promise. Where the promises list `touches`, BOB enforces it: a write outside them (bob/ and docs/ are always fine) is flagged, the round cannot end until it is reverted (`git restore`) or written under "Noticed, not done", and `git add` and `git commit` are refused meanwhile (once a stray is written under "Noticed, not done" a commit is allowed, but `git add -A` and `git commit -a` are not: add the round's own files by name). BOB sees file-edit tools only, so a change made by a shell command is not traced: keep to the rule yourself. A typo or one-line edit is exempt, so skip the ceremony for it. No tidying nearby code, no renames, no extra features because they seem useful, nothing from the "Not building" list.
 - Spotted something worth doing outside the round? Write it under "Noticed, not done" in `docs/project-status.md` and carry on. It becomes a candidate for the next round, which the person approves.
+
+## Decide, log, carry on
+No questions mid-round: the person is asked once, at the design gate. When something is unclear, pick the sensible option, write one event of type `assumed` in `bob/ledger.json` (`origin: runtime`, `detail`: the decision and why) and keep going. Never write it into `bob/brief.json`: that changes the approved brief and forces a second approval. BOB refuses a question while a round is active unless a header says BLOCKER, which is for a missing key, spend, or a click only a person can make.
 
 ## When something breaks: stop the line
 1. Stop adding anything. A broken step makes every later step wrong.

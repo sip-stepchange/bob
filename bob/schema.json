@@ -161,7 +161,8 @@
       "cancelled",
       "finished",
       "reconciled",
-      "sent_back"
+      "sent_back",
+      "assumed"
     ]
   },
   "evidence": {
@@ -239,6 +240,9 @@
   "gates": {
     "A_approval": "deny Edit, Write and file-writing Bash when no approval has brief_hash == sha256(bob/brief.json) (or scope_hash == the brief's scope hash, see approval.scope_hash) and the active increment in scope_increment_ids; a governed repo whose every increment is done or returned (or that has none) is idle and Gate A allows writes (R-bob-16, 0.9.0), while a proposed or approved increment, an unknown increment state, a brief changed after approval and any file that does not parse still refuse; a Bash write to bob/brief.json is refused outright because the state guard sees Edit and Write only",
     "B_evidence": "block the end of a turn when the active increment's requirement_ids gained no evidence record during this run",
+    "surgical": "when the active increment's promises declare touches (requirement field, optional), a Write or Edit outside them and outside bob/ and docs/ is a stray: the end of the round is blocked once naming it, and git add or git commit is refused until it is reverted or written under Noticed, not done in docs/project-status.md; a one-line Edit is exempt; a round whose promises do not all declare touches is not judged; it sees Edit, Write, MultiEdit and NotebookEdit calls only, so a change made through a shell command is not traced (the remote checks and the diff review stay the real line). Increments carry steps (optional field, required at adopt except INC-00): each {step, verify}",
+    "stage_done": "a ledger write that sets an increment to done is refused while any of its promises is not verified or accepted, so a stage is done only when its check has run against the real artefact and left evidence",
+    "no_questions_mid_round": "AskUserQuestion is refused while an increment is active unless a question header says BLOCKER; the model decides and logs an event of type assumed instead",
     "preflight": "scripts/preflight.sh on SessionStart"
   },
   "workspace": {

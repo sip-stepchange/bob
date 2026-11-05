@@ -8,14 +8,14 @@
     "project": { "id": "P-<slug>", "name": "<name>", "created_at": "...", "source": "human", "is_synthetic": false },
     "requirements": [
       { "id": "R-<slug>-01", "priority": "MUST", "text": "...", "check": "...", "state": "not_assessed",
-        "evidence_ids": [], "source_ids": ["S-01"], "created_at": "...", "source": "ai", "is_synthetic": false }
+        "evidence_ids": [], "source_ids": ["S-01"], "touches": ["<folder/>", "<file>"], "created_at": "...", "source": "ai", "is_synthetic": false }
     ],
     "decisions": [], "assumptions": [], "outputs": []
   },
   "ledger": {
     "increments": [
       { "id": "INC-00", "title": "govern the project under BOB", "requirement_ids": ["R-<slug>-00"], "state": "proposed", "approval_id": null, "created_at": "...", "source": "ai", "is_synthetic": false },
-      { "id": "INC-01", "title": "<phase one: the first working look>", "requirement_ids": ["R-<slug>-01"], "state": "proposed", "approval_id": null, "created_at": "...", "source": "ai", "is_synthetic": false }
+      { "id": "INC-01", "title": "<phase one: the first working look>", "requirement_ids": ["R-<slug>-01"], "steps": [{ "step": "<what is done>", "verify": "<the check that proves it, run against the real thing>" }], "state": "proposed", "approval_id": null, "created_at": "...", "source": "ai", "is_synthetic": false }
     ],
     "runs": [], "events": [], "evidence": []
   },
@@ -31,6 +31,7 @@ Rules the engine enforces (so the design room drafts to them):
 - `R-<slug>-00` is always "the project is BOB-governed: bob/ files exist, main unchanged", claimed by `INC-00`.
 - Before any build every requirement is `not_assessed` or `blocked`. `verified` and `accepted` need an evidence record; the design room has none.
 - At most three increments: `INC-00` (govern), `INC-01` (phase one), `INC-02` (phase two). Every requirement that is not already verified sits in one of them.
+- Every increment except `INC-00` carries `steps`: a list of `{step, verify}`, each step with the check that proves it, run against the real artefact. Every requirement in such an increment lists `touches`: the folders (ending `/`) or files its round may change. BOB's own `bob/` and `docs/` are always allowed. The brief carries `touches`, so the approval binds them and a build round that writes outside them is flagged and cannot commit the stray.
 - Increments are `proposed`; `active` is refused (approval is `/bob approve`). Every `requirement_ids` entry exists in `brief.requirements`.
 - Sources carry `access` and `processing` as observed. A source nobody opened is `queued` or `missing`, never `extracted`.
 - No `approvals` key with records.
