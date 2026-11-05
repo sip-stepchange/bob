@@ -27,6 +27,9 @@ const pendingAtom = atom({ plugin: 'bob', key: 'pending' } as const, null as Pen
 // R-bob-18: set when Gate B takes new evidence into the baseline during a round,
 // so the round that gained it is never judged unproven afterwards.
 const provenAtom = atom({ plugin: 'bob', key: 'proven' } as const, false as boolean)
+// Surgical changes: files a round wrote that none of its promises list under `touches`.
+// They stay until reverted or written under "Noticed, not done"; none may be committed.
+const strayAtom = atom({ plugin: 'bob', key: 'stray' } as const, [] as string[])
 // The last pane action's outcome, shown in the pane (R-bob-09).
 const noteAtom = atom({ plugin: 'bob', key: 'note' } as const, null as string | null)
 // The main loop's running turn, for Pause (R-bob-12); null between turns.
@@ -399,6 +402,17 @@ function proposalRefusals(schema: Any, p: Any): string[] {
     if (inc.state === 'active') out.push(`increment ${inc.id}: adopt cannot propose an active increment; approval is a person\u2019s press on Approve in the BOB pane`)
     const reqIds = new Set(reqs.map(r => String(r.id)))
     for (const id of (inc.requirement_ids ?? []) as string[]) if (!reqIds.has(id)) out.push(`increment ${inc.id}: requirement ${id} is not in brief.requirements`)
+    // Every build round carries its plan, "step, then verify", and the paths its promises may touch.
+    // INC-00 only governs the project, so it has neither.
+    if (inc.id !== 'INC-00') {
+      const steps: Any[] = Array.isArray(inc.steps) ? inc.steps : []
+      if (!steps.length) out.push(`increment ${inc.id}: steps is empty; list each step with the check that proves it, run against the real thing`)
+      for (const [n, st] of steps.entries()) if (!String(st?.step ?? '').trim() || !String(st?.verify ?? '').trim()) out.push(`increment ${inc.id}: step ${n + 1} needs both a step and a verify`)
+      for (const id of (inc.requirement_ids ?? []) as string[]) {
+        const r = reqs.find(x => String(x.id) === id)
+        if (r && !(Array.isArray(r.touches) && r.touches.length && r.touches.every((t: unknown) => typeof t === 'string' && t.trim()))) out.push(`requirement ${id} is in ${inc.id} but lists no touches; name the folders or files its round may change`)
+      }
+    }
   }
   // Phase rounds (Ash, 29 October 2026): one approval per phase, never one per fix.
   // INC-00 governs, then at most two phases; no promise is left outside a phase.
@@ -815,6 +829,36 @@ async function resetRound($: Engine) {
   await update($, touchedAtom, () => [])
   await update($, pendingAtom, () => null)
   await update($, provenAtom, () => false)
+  await update($, strayAtom, () => [])
+}
+
+// Surgical changes. A promise may declare `touches`: the paths its round may write
+// (a folder ends in /, or a file). The brief carries them, so the approval binds
+// them. BOB's own records (bob/, docs/) are always allowed. A round whose promises
+// declare nothing is not judged: there is no scope to trace a line to.
+const RECORD_PATHS = ['bob/', 'docs/']
+const relIn = (m: Model, path: string): string | null => (path.startsWith(`${m.root}/`) ? path.slice(m.root.length + 1) : null)
+function scopeOf(m: Model, active: Any): string[] | null {
+  const ids: string[] = active.requirement_ids ?? []
+  const declared = ((m.brief?.requirements ?? []) as Any[]).filter(r => ids.includes(String(r.id))).flatMap(r => (Array.isArray(r.touches) ? (r.touches as string[]) : []))
+  return declared.length ? declared : null
+}
+const inPath = (rel: string, p: string) => rel === p || rel.startsWith(p.endsWith('/') ? p : `${p}/`)
+const outsideScope = (rel: string, scope: string[]) => ![...RECORD_PATHS, ...scope].some(p => inPath(rel, p))
+// A typo or a one-line fix skips the check: one old line replaced by one new line.
+const oneLine = (t: unknown) => !String(t ?? '').replace(/\n$/, '').includes('\n')
+const isOneLiner = (e: Any): boolean =>
+  e.tool === 'Edit' ? oneLine(e.old_string) && oneLine(e.new_string)
+  : e.tool === 'MultiEdit' ? Array.isArray(e.edits) && e.edits.length > 0 && (e.edits as Any[]).every(x => oneLine(x.old_string) && oneLine(x.new_string))
+  : false
+// Strays not yet written under "Noticed, not done" in the build log.
+async function openStrays($: Engine, m: Model): Promise<string[]> {
+  const strays = await read($, strayAtom)
+  if (!strays.length) return []
+  const log = (await readText($, at(m.root, 'docs/project-status.md'))) ?? ''
+  const from = log.toLowerCase().indexOf('noticed, not done')
+  const noted = from < 0 ? '' : log.slice(from)
+  return strays.filter(f => !noted.includes(f))
 }
 
 // Evidence the active increment gained since the round's baseline.
@@ -1375,6 +1419,24 @@ function claimedLook(current: string, text: string): string | null {
   return null
 }
 
+// A stage is not done until its check has been run against the real artefact: a ledger
+// write that moves an increment to done while any of its promises is not yet verified
+// or accepted (which each need an evidence record) is refused.
+function doneWithoutProof(m: Model, current: string, text: string): string | null {
+  let before: Any = null
+  let after: Any = null
+  try { before = JSON.parse(current || '{}') } catch { before = {} }
+  try { after = JSON.parse(text) } catch { return null }
+  const was = new Map(((before?.increments ?? []) as Any[]).map(i => [String(i.id), String(i.state)]))
+  const stateOf = (rid: string) => String(((m.brief?.requirements ?? []) as Any[]).find(r => String(r.id) === rid)?.state ?? 'unknown')
+  for (const inc of (after?.increments ?? []) as Any[]) {
+    if (inc.state !== 'done' || was.get(String(inc.id)) === 'done') continue
+    const open = ((inc.requirement_ids ?? []) as string[]).filter(rid => !['verified', 'accepted'].includes(stateOf(rid)))
+    if (open.length) return `it sets ${inc.id} to done while ${open.join(', ')} ${open.length === 1 ? 'is' : 'are'} not verified; a stage is done only when its check has been run against the real artefact and recorded as evidence`
+  }
+  return null
+}
+
 const parsePreflight = (exitCode: number, stdout: string, stderr: string, at: number): Preflight => {
   const lines = `${stdout}\n${stderr}`.split('\n').map(l => l.trim()).filter(Boolean)
   const stops = lines.filter(l => /STOP/.test(l)).map(l => l.replace(/^preflight\s*·\s*STOP\s*·\s*/, ''))
@@ -1529,7 +1591,7 @@ export const register: Register = on => {
     if (m.governed && isLedgerPath(path)) {
       const current = (await readText($, at(m.root, 'bob/ledger.json'))) ?? ''
       const text = proposedText(e as Any, current)
-      const why = text === null ? null : claimedLook(current, text)
+      const why = text === null ? null : claimedLook(current, text) ?? doneWithoutProof(m, current, text)
       if (why) return { deny: `BOB state guard refused this write: ${why}.` }
     }
     if (m.governed && isBriefPath(path)) {
@@ -1548,12 +1610,38 @@ export const register: Register = on => {
     }
 
     if (m.governed && inRepo) await update($, touchedAtom, list => [...list, path].slice(-100))
+    const round = m.governed && inRepo ? activeIncrement(m) : undefined
+    const rel = round ? relIn(m, path) : null
+    const scope = round && rel ? scopeOf(m, round) : null
+    if (rel && scope && outsideScope(rel, scope) && !isOneLiner(e as Any)) await update($, strayAtom, list => (list.includes(rel) ? list : [...list, rel]))
     redraw($)
     return next(e)
   }).catch(($, e, next) => (next.called ? next(e) : { deny: 'BOB Gate A: its guard failed, so this write is refused. Next action: Claude: report the failure to the person.' }))
 
+  // Ask once, at the design gate only. While a round is active a question is
+  // refused: decide, log it as an assumed event, carry on. A true blocker (a key,
+  // spend, a person-only click) says BLOCKER in a question header and goes through.
+  on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
+    const m = await load($)
+    if (!m.governed || !m.ledger || !activeIncrement(m)) return next(e)
+    const asked = ((e as Any).questions ?? []) as Any[]
+    if (asked.some(q => /blocker/i.test(String(q?.header ?? '')))) return next(e)
+    return { deny: 'BOB: no questions mid-round. The person is asked once, at the design gate. Next action: Claude: decide, write one event of type assumed in bob/ledger.json (detail: the decision and why), and carry on. If this is a true blocker (a key, spend, or a click only a person can make), ask again with BLOCKER in the question header.' }
+  })
+
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const command = String(e.command ?? '')
+    const gitCommand = /\bgit\s+(commit|add|restore|checkout|stash)\b/.test(command)
+    if (gitCommand) {
+      const strays = await read($, strayAtom)
+      if (/\bgit\s+(restore|checkout|stash)\b/.test(command)) {
+        const reverted = strays.filter(f => command.includes(f))
+        if (reverted.length) await update($, strayAtom, list => list.filter(f => !reverted.includes(f)))
+      } else {
+        const open = await openStrays($, await load($))
+        if (open.length) return { deny: `BOB surgical check: not committing yet. ${open.join(', ')} ${open.length === 1 ? 'is' : 'are'} not in what this round's promises list under touches. Next action: Claude: revert ${open.length === 1 ? 'it' : 'them'} with git restore, or write ${open.length === 1 ? 'it' : 'each'} under "Noticed, not done" in docs/project-status.md, then commit only the round's own changes.` }
+      }
+    }
     if (!writesFiles(command) && !writesBriefFromBash(command)) return next(e)
     const m = await load($)
     if (m.governed && writesBriefFromBash(command)) {
@@ -1579,7 +1667,15 @@ export const register: Register = on => {
     const m = await load($)
     if (!m.governed || !m.ledger) return (await reportCheck($, e)) ?? next(e)
     const active = activeIncrement(m)
-    if (!active) return (await reportCheck($, e)) ?? next(e)
+    if (!active) {
+      await update($, strayAtom, () => [])
+      return (await reportCheck($, e)) ?? next(e)
+    }
+    const open = await openStrays($, m)
+    if (!open.length) await update($, strayAtom, () => [])
+    else if (!e.stop_hook_active) {
+      return { block: `BOB surgical check: this round changed ${open.length} file(s) that none of its promises list under touches: ${open.join(', ')}. Every changed line must trace to the approved promises. Revert ${open.length === 1 ? 'it' : 'them'} (git restore), or write ${open.length === 1 ? 'it' : 'each'} under "Noticed, not done" in docs/project-status.md for the next round, and do not commit ${open.length === 1 ? 'it' : 'them'}. A typo or one-line fix is exempt.` }
+    }
     const wrote = await read($, touchedAtom)
     if (wrote.length === 0) return (await reportCheck($, e)) ?? next(e)
 

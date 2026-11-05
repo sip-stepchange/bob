@@ -535,13 +535,13 @@ function proposal() {
       requirements: [
         areq('R-P-00', 'repo is governed', 'not_assessed'),
         areq('R-P-01', 'has evidence', 'verified', ['E-P-01']),
-        areq('R-P-02', 'only prose', 'reported'),
+        { ...areq('R-P-02', 'only prose', 'reported'), touches: ['src/'] },
       ],
     },
     ledger: {
       increments: [
         { id: 'INC-00', title: 'adopt', requirement_ids: ['R-P-00'], state: 'proposed', approval_id: null, ...real('ai') },
-        { id: 'INC-01', title: 'first real increment', requirement_ids: ['R-P-02'], state: 'proposed', approval_id: null, ...real('ai') },
+        { id: 'INC-01', title: 'first real increment', requirement_ids: ['R-P-02'], steps: [{ step: 'build it', verify: 'run the check against the real page' }], state: 'proposed', approval_id: null, ...real('ai') },
       ],
       runs: [],
       events: [],
@@ -1345,6 +1345,129 @@ test('R-bob-20: pressing Approve starts the approved work with one prompt naming
   expect(w.prompts![0]).toContain('R-P-00')
   expect(w.prompts![0]).toContain('Do not stop to ask')
   await ui.unmount()
+})
+
+// Surgical changes, the steps plan and no questions mid-round (5 November 2026).
+const SCOPED = { requirements: BRIEF.requirements.map(r => (['R-T-03', 'R-T-04'].includes(r.id) ? { ...r, touches: ['src/bank/'] } : r)) }
+async function scopedWorld(on: any, files: Record<string, string> = {}): Promise<World> {
+  return approvedWorld(on, {
+    brief: SCOPED,
+    approvals: [{ id: 'AP-T-2', brief_hash: await sha256(JSON.stringify(SCOPED)), scope_increment_ids: ['INC-T-2'], approver: 'Mags (fixture)', approved_at: T, ...base('human') }],
+    files,
+  })
+}
+
+test('surgical: a round that wrote outside its promises\' touches is blocked once, naming only the stray; bob/ and docs/ and the declared folder are never strays', async ($, on) => {
+  await scopedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/bank/ok.ts`, content: 'x' })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/docs/project-status.md`, content: 'x' })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/other/stray.ts`, content: 'x' })
+  const blocked = (await $.classic.Stop(stopInput())).block ?? ''
+  expect(blocked).toContain('surgical')
+  expect(blocked).toContain('src/other/stray.ts')
+  expect(blocked).not.toContain('ok.ts')
+  expect(blocked).toContain('1 file(s)')
+  expect((await $.classic.Stop(stopInput(true))).block).toBe(undefined)
+})
+
+test('surgical: in-scope and record writes only go on to Gate B, never the surgical block', async ($, on) => {
+  await scopedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/bank/ok.ts`, content: 'x' })
+  const blocked = (await $.classic.Stop(stopInput())).block ?? ''
+  expect(blocked).toContain('Gate B')
+  expect(blocked).not.toContain('surgical')
+})
+
+test('surgical: a one-line Edit (a typo) is exempt, a multi-line Edit is not, and a round whose promises declare no touches is not judged', async ($, on) => {
+  await scopedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Edit', file_path: `${ROOT}/README.md`, old_string: 'teh', new_string: 'the' })
+  expect(((await $.classic.Stop(stopInput())).block ?? '')).not.toContain('surgical')
+  await $.tool.call({ tool: 'Edit', file_path: `${ROOT}/README.md`, old_string: 'a\nb', new_string: 'a\nc' })
+  expect(((await $.classic.Stop(stopInput())).block ?? '')).toContain('README.md')
+})
+
+test('surgical: with no touches declared anywhere the check is off', async ($, on) => {
+  await approvedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/other/anything.ts`, content: 'x' })
+  expect(((await $.classic.Stop(stopInput())).block ?? '')).not.toContain('surgical')
+})
+
+test('surgical: git add and git commit are refused while a stray is outstanding, and allowed once it is reverted or written under Noticed, not done', async ($, on) => {
+  const w = await scopedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/other/stray.ts`, content: 'x' })
+  await $.tool.call({ tool: 'Write', file_path: `${ROOT}/src/other/second.ts`, content: 'x' })
+  const refused = said(await $.tool.call({ tool: 'Bash', command: 'git add -A' }))
+  expect(refused).toContain('surgical')
+  expect(refused).toContain('src/other/stray.ts')
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git commit -m x' }))).toContain('surgical')
+  // Reverting one clears it; writing the other under Noticed, not done clears the rest.
+  await $.tool.call({ tool: 'Bash', command: 'git restore src/other/stray.ts' })
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git add -A' }))).toContain('src/other/second.ts')
+  w.files!['docs/project-status.md'] = '# log\n\n## Noticed, not done\n- src/other/second.ts: tidy later\n'
+  expect(said(await $.tool.call({ tool: 'Bash', command: 'git add -A' }))).toBe('')
+})
+
+test('a stage is not done until its check has run: a ledger write that sets an increment to done is refused while a promise is unverified, and allowed once all are verified', async ($, on) => {
+  await approvedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const done = JSON.stringify({ ...LEDGER, increments: LEDGER.increments.map(i => ({ ...i, state: 'done' })) })
+  const refused = said(await $.tool.call({ tool: 'Write', file_path: `${ROOT}/bob/ledger.json`, content: done }))
+  expect(refused).toContain('not verified')
+  expect(refused).toContain('R-T-04')
+})
+
+test('a stage may be set to done once every one of its promises is verified', async ($, on) => {
+  const proven = { requirements: BRIEF.requirements.map(r => (['R-T-03', 'R-T-04'].includes(r.id) ? { ...r, state: 'verified' } : r)) }
+  await approvedWorld(on, {
+    brief: proven,
+    approvals: [{ id: 'AP-T-2', brief_hash: await sha256(JSON.stringify(proven)), scope_increment_ids: ['INC-T-2'], approver: 'Mags (fixture)', approved_at: T, ...base('human') }],
+  })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const done = JSON.stringify({ ...LEDGER, increments: LEDGER.increments.map(i => ({ ...i, state: 'done' })) })
+  expect(said(await $.tool.call({ tool: 'Write', file_path: `${ROOT}/bob/ledger.json`, content: done }))).toBe('')
+})
+
+test('no questions mid-round: AskUserQuestion is refused while an increment is active, passes with BLOCKER in a header, and passes in an idle repo', async ($, on) => {
+  await approvedWorld(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const refused = said(await $.tool.call({ tool: 'AskUserQuestion', questions: [{ header: 'Colour', question: 'Blue or green?' }] } as any))
+  expect(refused).toContain('no questions mid-round')
+  expect(refused).toContain('assumed')
+  expect(said(await $.tool.call({ tool: 'AskUserQuestion', questions: [{ header: 'BLOCKER: key', question: 'Add the key?' }] } as any))).toBe('')
+})
+
+test('no questions mid-round: a repo with no active increment may still ask (the design gate)', async ($, on) => {
+  await approvedWorld(on, { ledger: { ...LEDGER, increments: LEDGER.increments.map(i => ({ ...i, state: 'done' })) } })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(said(await $.tool.call({ tool: 'AskUserQuestion', questions: [{ header: 'Colour', question: 'Blue or green?' }] } as any))).toBe('')
+})
+
+test('adopt refuses a build increment with no steps, a step with no verify, and a promise that lists no touches; INC-00 needs none', async ($, on) => {
+  const bad = proposal() as any
+  bad.ledger.increments[1].steps = [{ step: 'build it', verify: '' }]
+  delete bad.brief.requirements[2].touches
+  const w = await adoptWorld(on, bad)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const out = await adopt($)
+  expect(out).toContain('refused')
+  expect(out).toContain('needs both a step and a verify')
+  expect(out).toContain('lists no touches')
+  expect(out).not.toContain('INC-00')
+  expect(w.writes!.length).toBe(0)
+})
+
+test('adopt refuses a build increment whose steps list is empty', async ($, on) => {
+  const none = proposal() as any
+  none.ledger.increments[1].steps = []
+  const w = await adoptWorld(on, none)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(await adopt($)).toContain('steps is empty')
+  expect(w.writes!.length).toBe(0)
 })
 
 test('R-bob-09: no Approve button while an increment is active', async ($, on) => {

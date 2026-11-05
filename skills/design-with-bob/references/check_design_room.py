@@ -138,6 +138,15 @@ def main(folder: str, synthetic: bool = False) -> int:
                 if r.get("state") not in ("verified", "accepted") and r.get("id") not in planned: out.append(f"requirement {r.get('id')} is in no increment; put it in phase one or phase two")
             for i in incs:
                 base(i, "increment")
+                if i.get("id") != "INC-00":
+                    steps = i.get("steps") or []
+                    if not steps: out.append(f"increment {i.get('id')}: steps is empty; list each step with the check that proves it, run against the real thing")
+                    for n, st in enumerate(steps, 1):
+                        if not str((st or {}).get("step", "")).strip() or not str((st or {}).get("verify", "")).strip(): out.append(f"increment {i.get('id')}: step {n} needs both a step and a verify")
+                    for rid in i.get("requirement_ids") or []:
+                        rq = next((x for x in reqs if x.get("id") == rid), None)
+                        t = (rq or {}).get("touches")
+                        if rq is not None and not (isinstance(t, list) and t and all(isinstance(x, str) and x.strip() for x in t)): out.append(f"requirement {rid} is in {i.get('id')} but lists no touches; name the folders or files its round may change")
                 if i.get("state") != "proposed": out.append(f"increment {i.get('id')}: state must be proposed")
                 for rid in i.get("requirement_ids") or []:
                     if rid not in ids: out.append(f"increment {i.get('id')}: requirement {rid} is not in brief.requirements")
